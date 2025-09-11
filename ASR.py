@@ -11,7 +11,7 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(
 
 # Global ASR model instance
 asr_model = None
-model_path = "vinai/PhoWhisper-small"
+model_path = "./ct2-phowhisper-small"
 def load_asr_model():
     """Loads the ASR model once when the application starts."""
     global asr_model
@@ -49,7 +49,16 @@ def transcribe_audio():
 
         # Transcribe the audio
         logging.info("Transcribing audio...")
-        transcription_result, _ = asr_model.transcribe(audio_data, beam_size=3, language="vi")
+        transcription_result, _ = asr_model.transcribe(
+            audio_data,
+            beam_size=3,                   # explore a few alternatives for accuracy
+            temperature=0.0,                 # still deterministic
+            no_speech_threshold=0.7,        # a bit stricter than default
+            hallucination_silence_threshold=1.5,  # tolerate longer pauses
+            log_prob_threshold=-1.0          # allow more low-confidence words
+        )
+
+
         text = " ".join([segment.text for segment in transcription_result])
 
         logging.info(f"Transcription complete: {text}")

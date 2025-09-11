@@ -45,7 +45,8 @@ with open(ctx_path, "r", encoding="utf-8") as f:
     ctx = json.load(f)
 
 @tool
-def retrieve(query: str, topk_anchors: int = 5, topk_question: int = 5):
+def retrieve(query: str, topk_anchors: int = 4, topk_question: int = 4):
+    """Retrieve relevant sections from the FAISS vector store based on the query."""
     a_hits = vs_a.similarity_search_with_score(query, k=topk_anchors)
     q_hits = vs_q.similarity_search_with_score(query, k=topk_question)
 

@@ -132,11 +132,6 @@ class WhisperSTT:
 # -----------------------------
 # Recorder (handles streaming input from mic)
 # -----------------------------
-import sounddevice as sd
-import numpy as np
-import threading
-import logging
-import time
 
 class Recorder:
     def __init__(self, cfg: Config, stt: WhisperSTT):
@@ -184,21 +179,17 @@ class Recorder:
         elapsed = time.time() - start
         self.logger.info(f"Recording finished (elapsed {elapsed:.1f}s).")
 
-        # Trim silence if stopped early
-        max_frames = int(elapsed * self.cfg.sample_rate)
-        if max_frames < len(audio_data):
-            audio_data = audio_data[:max_frames]
-
         if audio_data.size == 0:
             self.logger.warning("No audio data was recorded.")
             return self.cfg.backup_str
 
+        sf.write('record.wav', audio_data, self.cfg.sample_rate)
         self.logger.info("Sending to ASR server...")
         transcribed_text = self.stt.transcribe_audio(audio_data)
         return transcribed_text if transcribed_text else self.cfg.backup_str
 
 # -----------------------------
-# RAG Client (currently posts to webhook/Gemini)
+# RAG Client (currently posts to Gemini)
 # -----------------------------
 class RAGClient:
     """
