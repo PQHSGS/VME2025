@@ -18,83 +18,69 @@ from langchain_community.vectorstores import FAISS
 from huggingface_hub import login
 
 # ---------- config ----------
-login("HF_TOKEN")
+login("")
 def load_dataframe(path_dir: str):
     df = pd.read_csv(path_dir)
-    df = df.dropna()
-    df = df.reset_index(drop=True)
+    df.fillna('', inplace=True)
+    print(df['Câu hỏi'])
     return df
-def build_indexes_from_text(df: pd.DataFrame,
+def build_indexes_from_questions(load_dir: str,
                             embeddings=None,
-                            max_words=700,
                             save_dir="FAISS/q_db"):
     """
     Build and save FAISS indexes + docs (JSON).
     """
     if embeddings is None:
         embeddings = HuggingFaceEmbeddings(model_name="hiieu/halong_embedding")
-
-
-    return faiss_content, faiss_header, docs_content
+    df = load_dataframe(load_dir)
+    questions_content= []
+    for i in range(len(df)):
+        meta = {
+            'question': df['Câu hỏi'][i],
+            'guidance': df['Hướng dẫn'][i],
+            'answer': df['Câu trả lời mẫu'][i],
+        }
+        questions_content.append(Document(page_content=df['Câu hỏi'][i], metadata=meta))
+    faiss_content = FAISS.from_documents(questions_content, embeddings)
+    # save
+    os.makedirs(save_dir, exist_ok=True)
+    faiss_content.save_local(os.path.join(save_dir, "question_index"))
+    with open(os.path.join(save_dir, "questions.json"), "w", encoding="utf-8") as f:
+        json.dump([doc.metadata for doc in questions_content], f, ensure_ascii=False, indent=2)
+def load_indexes(embeddings=None, load_dir="FAISS/full_db"):
+    if embeddings is None:
+        embeddings = HuggingFaceEmbeddings(model_name="hiieu/halong_embedding")
+    path = os.path.join(load_dir, "question_index")
+    question_index = FAISS.load_local(path, embeddings, allow_dangerous_deserialization=True)
+    with open(os.path.join(load_dir, "questions.json"), "r", encoding="utf-8") as f:
+        questions = json.load(f)
+    return question_index, questions
 
 # ---------- hybrid retrieval ----------
 
-def hybrid_search(query: str,
-                  faiss_content: FAISS,
-                  faiss_header: FAISS,
-                  docs_content: List[Document],
-                  k: int = 5,
-                  w_content: float = 0.7,
-                  w_header: float = 0.3):
-    """
-    Returns top-k Document objects (from content) ranked by hybrid score.
-    Assumes similarity_search_with_score returns (Document, score) where lower score == closer (distance).
-    We convert distance -> similarity by sim = 1/(1+distance).
-    """
-    assert faiss_content is not None
-    # content results
-    c_results = faiss_content.similarity_search_with_score(query, k=k)
-    # header results
-    h_results = faiss_header.similarity_search_with_score(query, k=k) if faiss_header else []
-
-    scores = {}  # chunk_id -> combined similarity
-    # content hits
-    for doc, score in c_results:
-        chunk_id = doc.metadata.get('chunk_id')
-        sim = 1.0 / (1.0 + float(score))  # convert distance -> similarity
-        scores[chunk_id] = scores.get(chunk_id, 0.0) + w_content * sim
-    # header hits
-    for doc, score in h_results:
-        chunk_id = doc.metadata.get('chunk_id')
-        sim = 1.0 / (1.0 + float(score))
-        scores[chunk_id] = scores.get(chunk_id, 0.0) + w_header * sim
-
-    # Build sorted results
-    ranked = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)
-    results = []
-    for chunk_id, comb_sim in ranked[:k]:
-        # find original doc
-        doc = next((d for d in docs_content if d.metadata['chunk_id'] == chunk_id), None)
-        if doc:
-            doc.metadata['hybrid_score'] = comb_sim
-            results.append(doc)
+def search(query: str, faiss_question: FAISS, k=3):
+    results=[]
+    res = faiss_question.similarity_search_with_score(query, k=k)
+    for r in res:
+        doc, score = r
+        doc.metadata['score'] = score
+        results.append(doc)
     return results
 
 # ---------- example usage ----------
 if __name__ == "__main__":
-    # full_text should be your document as a single string
-    with open("D:\\Code\\VME\\Enhanced Flow\\Trung Thu.txt", "r", encoding="utf-8") as f:
-        full_text = f.read()
-    build_indexes_from_text(full_text, save_dir = "Enhanced Flow/FAISS/full_db")
-    # faiss_content, faiss_header, docs_content = load_indexes()
-    # while True:
-    #     q = input("Enter query (or 'exit'): ").strip()
-    #     if q.lower() in ('exit', 'quit'):
-    #         break
-    #     if not q:
-    #         continue
-    #     out = hybrid_search(q, faiss_content, faiss_header, docs_content, k=4, w_content=0.3, w_header=0.7)
-    #     for d in out:
-    #         print("SCORE:", d.metadata.get('hybrid_score'), "HEADER:", d.metadata['header_path_str'])
-    #         print(d.page_content[:300])
-    #         print("---")
+    build_indexes_from_questions("D:\\Code\\VME\\Enhanced Flow\\Questions.csv", save_dir = "FAISS/full_db")
+    question_index, questions = load_indexes()
+    while True:
+        q = input("Enter query (or 'exit'): ").strip()
+        if q.lower() in ('exit', 'quit'):
+            break
+        if not q:
+            continue
+        out = search(q, question_index, k=4)
+        for d in out:
+            print(f"Score: {d.metadata['score']:.4f}")
+            print(f"Question: {d.metadata['question']}")
+            print(f"Guidance: {d.metadata['guidance']}")
+            print(f"Answer: {d.metadata['answer']}")
+            print("-" * 40)

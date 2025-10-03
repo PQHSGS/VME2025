@@ -1,0 +1,407 @@
+2025-10-01 10:24:47,688 | INFO | WhisperSTT | WhisperSTT client initialized. Calling localhost ASR service.
+2025-10-01 10:24:47,690 | DEBUG | TTSService | Playback thread started
+2025-10-01 10:24:47,690 | INFO | ConversationManager | Conversation manager started. Press ENTER to record, 'q' to quit.
+2025-10-01 10:24:54,948 | INFO | ConversationManager | User: alo ạ
+2025-10-01 10:24:54,948 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-01 10:24:54,957 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-01 10:24:55,684 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 200
+2025-10-01 10:24:55,686 | INFO | RAGClient | RAG reply (len=42)
+2025-10-01 10:24:55,691 | INFO | ConversationManager | Bot: Ơi ông đây, cháu gọi ông có chuyện gì thế.
+2025-10-01 10:24:55,692 | DEBUG | TTSService | Starting TTS download for text length=42
+2025-10-01 10:24:55,693 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:24:57,202 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:11,110 | INFO | ConversationManager | User: cháu chào ông
+2025-10-01 10:25:11,110 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-01 10:25:11,112 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-01 10:25:11,841 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 238
+2025-10-01 10:25:11,842 | INFO | RAGClient | RAG reply (len=60)
+2025-10-01 10:25:11,843 | INFO | ConversationManager | Bot: Chào cháu, ông là Tiến sĩ Kiến Thức đây. Cháu tên là gì nhỉ?
+2025-10-01 10:25:11,845 | DEBUG | TTSService | Starting TTS download for text length=60
+2025-10-01 10:25:11,846 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:25:14,679 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:46,869 | INFO | ConversationManager | User: ông là ai vậy ạ
+2025-10-01 10:25:46,870 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-01 10:25:46,873 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-01 10:25:48,157 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 1529
+2025-10-01 10:25:48,159 | INFO | RAGClient | RAG reply (len=657)
+2025-10-01 10:25:48,160 | INFO | ConversationManager | Bot: Ông chính là Ông Tiến sĩ Giấy đây. Từ ngày xưa, người Việt luôn coi trọng việc học hành. Vì thế, trong mâm cỗ Trung thu, bên cạnh bánh nướng, bánh dẻo, còn có ông – Ông Tiến sĩ Giấy – ngồi trên kiệu, áo mũ chỉnh tề, tượng trưng cho ước mơ học giỏi, đỗ đạt, hiển vinh. Sau khi phá cỗ, các em nhỏ thường rước ông đi quanh làng, rồi đặt ông lên bàn học hay đem đốt để gửi gắm ước nguyện học hành tiến tới. Nhưng này… ngày nay ông đã được “nâng cấp” rồi đấy! Không chỉ ngồi yên trên kiệu, bây giờ ông còn có thể nói chuyện, kể chuyện và đố vui cùng các con. Vừa giữ nét đẹp dân gian, vừa sống động và gần gũi hơn bao giờ hết! Các con thấy ông có ngầu không nào?
+2025-10-01 10:25:48,161 | DEBUG | TTSService | Starting TTS download for text length=657
+2025-10-01 10:25:48,161 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:25:50,667 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:50,935 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:51,042 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:25:53,615 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:53,812 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:54,098 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:54,223 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:25:56,725 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:56,917 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:57,010 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:25:59,254 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:59,522 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:25:59,649 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-01 10:26:02,095 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-01 10:26:02,318 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:48:51,862 | INFO | WhisperSTT | WhisperSTT client initialized. Calling localhost ASR service.
+2025-10-03 07:48:51,862 | DEBUG | TTSService | Playback thread started
+2025-10-03 07:48:51,862 | INFO | ConversationManager | Conversation manager started. Press ENTER to record, 'q' to quit.
+2025-10-03 07:50:35,782 | INFO | ConversationManager | User: alo alo
+2025-10-03 07:50:35,782 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 07:50:35,789 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 07:50:37,663 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 318
+2025-10-03 07:50:37,665 | INFO | RAGClient | RAG reply (len=98)
+2025-10-03 07:50:37,665 | INFO | ConversationManager | Bot: Chào bạn trẻ! Tôi là Tiến sĩ Kiến Thức, rất vui được trò chuyện cùng bạn. Bạn cần tôi giúp gì nào?
+2025-10-03 07:50:37,665 | DEBUG | TTSService | Starting TTS download for text length=98
+2025-10-03 07:50:37,672 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 07:50:42,165 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:50:43,748 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:53:41,689 | INFO | ConversationManager | User: alo alo
+2025-10-03 07:53:41,689 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 07:53:41,690 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 07:53:43,345 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 318
+2025-10-03 07:53:43,345 | INFO | RAGClient | RAG reply (len=98)
+2025-10-03 07:53:43,345 | INFO | ConversationManager | Bot: Chào bạn trẻ! Tôi là Tiến sĩ Kiến Thức, rất vui được trò chuyện cùng bạn. Bạn cần tôi giúp gì nào?
+2025-10-03 07:53:43,349 | DEBUG | TTSService | Starting TTS download for text length=98
+2025-10-03 07:53:43,350 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 07:53:45,171 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:53:45,298 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:53:45,607 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:54:22,259 | INFO | ConversationManager | User: chào ông
+2025-10-03 07:54:22,259 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 07:54:22,260 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 07:54:23,024 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 304
+2025-10-03 07:54:23,026 | INFO | RAGClient | RAG reply (len=91)
+2025-10-03 07:54:23,027 | INFO | ConversationManager | Bot: Chào bạn! Rất vui được gặp bạn. Bạn có câu hỏi gì muốn hỏi Tiến sĩ Kiến Thức này không nào?
+2025-10-03 07:54:23,027 | DEBUG | TTSService | Starting TTS download for text length=91
+2025-10-03 07:54:23,027 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 07:54:25,762 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:54:26,045 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:58:19,011 | INFO | ConversationManager | Interrupted by user
+2025-10-03 07:58:31,794 | INFO | WhisperSTT | WhisperSTT client initialized. Calling localhost ASR service.
+2025-10-03 07:58:31,794 | DEBUG | TTSService | Playback thread started
+2025-10-03 07:58:31,794 | INFO | ConversationManager | Conversation manager started. Press ENTER to record, 'q' to quit.
+2025-10-03 07:59:12,544 | INFO | ConversationManager | User: alo  alo
+2025-10-03 07:59:12,545 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 07:59:12,548 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 07:59:17,116 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 537
+2025-10-03 07:59:17,124 | INFO | RAGClient | RAG reply (len=191)
+2025-10-03 07:59:17,124 | INFO | ConversationManager | Bot: Chào bạn trẻ! Tôi là Tiến sĩ Kiến Thức, rất vui được trò chuyện cùng bạn. Bạn có câu hỏi gì muốn hỏi tôi không? Đừng ngại nhé, tôi ở đây để giúp bạn khám phá thế giới tri thức rộng lớn này! 😊
+2025-10-03 07:59:17,126 | DEBUG | TTSService | Starting TTS download for text length=191
+2025-10-03 07:59:17,129 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 07:59:22,162 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:59:22,514 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:59:22,614 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 07:59:26,505 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 07:59:26,791 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:01:38,277 | INFO | ConversationManager | User: cháu chào ông
+2025-10-03 08:01:38,278 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:01:38,278 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:01:39,913 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 498
+2025-10-03 08:01:39,914 | INFO | RAGClient | RAG reply (len=177)
+2025-10-03 08:01:39,914 | INFO | ConversationManager | Bot: Chào cháu! Ông là Tiến sĩ Kiến Thức đây, rất vui được gặp cháu. Cháu có điều gì muốn hỏi ông không? Đừng ngại ngùng nhé, ông luôn sẵn lòng chia sẻ kiến thức của mình với cháu. 😊
+2025-10-03 08:01:39,914 | DEBUG | TTSService | Starting TTS download for text length=177
+2025-10-03 08:01:39,916 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:01:46,265 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:01:46,715 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:01:46,807 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:01:50,040 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:01:50,659 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:05:27,741 | INFO | ConversationManager | User: alo alo
+2025-10-03 08:05:27,745 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:05:27,745 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:05:28,611 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 316
+2025-10-03 08:05:28,611 | INFO | RAGClient | RAG reply (len=98)
+2025-10-03 08:05:28,618 | INFO | ConversationManager | Bot: Chào bạn trẻ! Tôi là Tiến sĩ Kiến Thức, rất vui được trò chuyện cùng bạn. Bạn cần tôi giúp gì nào?
+2025-10-03 08:05:28,620 | DEBUG | TTSService | Starting TTS download for text length=98
+2025-10-03 08:05:28,621 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:05:30,270 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:05:30,524 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:05:50,089 | INFO | ConversationManager | User: alo ạ
+2025-10-03 08:05:50,089 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:05:50,094 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:05:51,863 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 360
+2025-10-03 08:05:51,863 | INFO | RAGClient | RAG reply (len=109)
+2025-10-03 08:05:51,863 | INFO | ConversationManager | Bot: Chào bạn! Tôi là Tiến sĩ Kiến Thức đây. Bạn cần tôi giúp gì nào? Có điều gì thú vị bạn muốn tìm hiểu không? 😊
+2025-10-03 08:05:51,865 | DEBUG | TTSService | Starting TTS download for text length=109
+2025-10-03 08:05:51,865 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:05:54,167 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:05:55,217 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:05:55,820 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:06:13,281 | INFO | ConversationManager | User: cháu chào ông
+2025-10-03 08:06:13,281 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:06:13,281 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:06:14,680 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 406
+2025-10-03 08:06:14,680 | INFO | RAGClient | RAG reply (len=135)
+2025-10-03 08:06:14,680 | INFO | ConversationManager | Bot: Chào cháu! Ông là Tiến sĩ Kiến Thức đây. Cháu có điều gì muốn hỏi ông không? Ông sẵn sàng chia sẻ mọi kiến thức mình có cho cháu đây! 😊
+2025-10-03 08:06:14,687 | DEBUG | TTSService | Starting TTS download for text length=135
+2025-10-03 08:06:14,688 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:06:20,971 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:06:22,620 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:06:23,248 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:08:08,342 | INFO | ConversationManager | User: alo alo
+2025-10-03 08:08:08,343 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:08:08,344 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:08:10,385 | WARNING | RAGClient | RAG request failed (attempt 1). Error: HTTPConnectionPool(host='127.0.0.1', port=7000): Max retries exceeded with url: /chat (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x0000026193163690>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-10-03 08:08:11,386 | DEBUG | RAGClient | Sending to RAG webhook (attempt 2): http://127.0.0.1:7000/chat
+2025-10-03 08:08:11,388 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:08:13,428 | WARNING | RAGClient | RAG request failed (attempt 2). Error: HTTPConnectionPool(host='127.0.0.1', port=7000): Max retries exceeded with url: /chat (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000261931993D0>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-10-03 08:08:15,429 | DEBUG | RAGClient | Sending to RAG webhook (attempt 3): http://127.0.0.1:7000/chat
+2025-10-03 08:08:15,431 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:08:16,502 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 318
+2025-10-03 08:08:16,508 | INFO | RAGClient | RAG reply (len=98)
+2025-10-03 08:08:16,509 | INFO | ConversationManager | Bot: Chào bạn trẻ! Tôi là Tiến sĩ Kiến Thức, rất vui được trò chuyện cùng bạn. Bạn cần tôi giúp gì nào?
+2025-10-03 08:08:16,510 | DEBUG | TTSService | Starting TTS download for text length=98
+2025-10-03 08:08:16,510 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:08:17,901 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:08:18,140 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:08:44,020 | INFO | ConversationManager | User: cháu chào ông
+2025-10-03 08:08:44,021 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:08:44,021 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:08:45,204 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 329
+2025-10-03 08:08:45,204 | INFO | RAGClient | RAG reply (len=99)
+2025-10-03 08:08:45,204 | INFO | ConversationManager | Bot: Chào cháu! Ông là Tiến sĩ Kiến Thức đây, rất vui được gặp cháu. Cháu có điều gì muốn hỏi ông không?
+2025-10-03 08:08:45,204 | DEBUG | TTSService | Starting TTS download for text length=99
+2025-10-03 08:08:45,204 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:08:46,552 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:08:46,813 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:11:42,877 | INFO | ConversationManager | User: alo alo
+2025-10-03 08:11:42,877 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 08:11:42,885 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 08:11:44,616 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 249
+2025-10-03 08:11:44,616 | INFO | RAGClient | RAG reply (len=69)
+2025-10-03 08:11:44,621 | INFO | ConversationManager | Bot: Alo alo cháu ơi! Ông Tiến sĩ Giấy đây, có gì vui mà cháu gọi ông thế?
+2025-10-03 08:11:44,621 | DEBUG | TTSService | Starting TTS download for text length=69
+2025-10-03 08:11:44,621 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 08:11:56,602 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 08:11:56,916 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 15:44:41,451 | INFO | ConversationManager | User: alo alo
+2025-10-03 15:44:41,454 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 15:44:41,467 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:00:07,319 | INFO | sentence_transformers.SentenceTransformer | Use pytorch device_name: cpu
+2025-10-03 16:00:07,319 | INFO | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: hiieu/halong_embedding
+2025-10-03 16:00:12,017 | INFO | WhisperSTT | WhisperSTT client initialized. Calling localhost ASR service.
+2025-10-03 16:00:12,022 | DEBUG | TTSService | Playback thread started
+2025-10-03 16:00:12,022 | INFO | ConversationManager | Conversation manager started. Press ENTER to record, 'q' to quit.
+2025-10-03 16:00:16,083 | INFO | faiss.loader | Loading faiss with AVX2 support.
+2025-10-03 16:00:16,595 | INFO | faiss.loader | Successfully loaded faiss with AVX2 support.
+2025-10-03 16:00:22,724 | INFO | ConversationManager | User: alo ạ
+2025-10-03 16:00:22,724 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:00:22,732 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:00:24,429 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 363
+2025-10-03 16:00:24,439 | INFO | RAGClient | RAG reply (len=128)
+2025-10-03 16:00:24,439 | INFO | ConversationManager | Bot: Ôi chào cháu, ông là Tiến sĩ Giấy đây. Hôm nay Trung Thu ở Bảo tàng vui lắm đúng không cháu? Có gì hay ho muốn hỏi ông không nè?
+2025-10-03 16:00:24,439 | DEBUG | TTSService | Starting TTS download for text length=128
+2025-10-03 16:00:24,439 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:00:28,241 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:00:29,305 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:00:56,569 | INFO | ConversationManager | User: cháu chào ông
+2025-10-03 16:00:56,569 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:00:56,572 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:00:57,202 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 353
+2025-10-03 16:00:57,204 | INFO | RAGClient | RAG reply (len=125)
+2025-10-03 16:00:57,204 | INFO | ConversationManager | Bot: Chào cháu, ông là Tiến sĩ Giấy đây. Hôm nay Trung Thu ở Bảo tàng vui lắm đúng không cháu? Có gì hay ho muốn hỏi ông không nè?
+2025-10-03 16:00:57,206 | DEBUG | TTSService | Starting TTS download for text length=125
+2025-10-03 16:00:57,206 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:01:00,963 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:01:01,505 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:02:47,163 | INFO | ConversationManager | User: Alo ạ
+2025-10-03 16:02:47,163 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:02:47,163 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:02:49,200 | WARNING | RAGClient | RAG request failed (attempt 1). Error: HTTPConnectionPool(host='127.0.0.1', port=7000): Max retries exceeded with url: /chat (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000220406B3190>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-10-03 16:02:50,202 | DEBUG | RAGClient | Sending to RAG webhook (attempt 2): http://127.0.0.1:7000/chat
+2025-10-03 16:02:50,202 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:02:52,241 | WARNING | RAGClient | RAG request failed (attempt 2). Error: HTTPConnectionPool(host='127.0.0.1', port=7000): Max retries exceeded with url: /chat (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000220406B0350>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-10-03 16:02:54,242 | DEBUG | RAGClient | Sending to RAG webhook (attempt 3): http://127.0.0.1:7000/chat
+2025-10-03 16:02:54,242 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:02:56,267 | WARNING | RAGClient | RAG request failed (attempt 3). Error: HTTPConnectionPool(host='127.0.0.1', port=7000): Max retries exceeded with url: /chat (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x00000220406CF490>: Failed to establish a new connection: [WinError 10061] No connection could be made because the target machine actively refused it'))
+2025-10-03 16:02:59,268 | ERROR | RAGClient | RAG request failed after retries
+2025-10-03 16:02:59,268 | WARNING | ConversationManager | Empty reply from RAG; using backup string
+2025-10-03 16:03:09,717 | INFO | sentence_transformers.SentenceTransformer | Use pytorch device_name: cpu
+2025-10-03 16:03:09,717 | INFO | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: hiieu/halong_embedding
+2025-10-03 16:03:16,987 | INFO | faiss.loader | Loading faiss with AVX2 support.
+2025-10-03 16:03:17,028 | INFO | faiss.loader | Successfully loaded faiss with AVX2 support.
+2025-10-03 16:04:17,872 | INFO | WhisperSTT | WhisperSTT client initialized. Calling localhost ASR service.
+2025-10-03 16:04:17,872 | DEBUG | TTSService | Playback thread started
+2025-10-03 16:04:17,880 | INFO | ConversationManager | Conversation manager started. Press ENTER to record, 'q' to quit.
+2025-10-03 16:04:24,021 | INFO | ConversationManager | User: alo ạ
+2025-10-03 16:04:24,021 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:04:24,021 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:04:25,382 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 287
+2025-10-03 16:04:25,386 | INFO | RAGClient | RAG reply (len=92)
+2025-10-03 16:04:25,386 | INFO | ConversationManager | Bot: Chào cháu, ông là Tiến sĩ Giấy AI đây. Hôm nay Trung Thu ở Bảo tàng vui lắm đúng không cháu?
+2025-10-03 16:04:25,386 | DEBUG | TTSService | Starting TTS download for text length=92
+2025-10-03 16:04:25,386 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:04:28,832 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:04:29,123 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:04:36,100 | INFO | ConversationManager | User: cháu chào ông ạ
+2025-10-03 16:04:36,100 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:04:36,104 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:04:36,944 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 236
+2025-10-03 16:04:36,952 | INFO | RAGClient | RAG reply (len=68)
+2025-10-03 16:04:36,952 | INFO | ConversationManager | Bot: Ôi chào cháu, cháu có câu hỏi gì về Trung Thu hay Bảo tàng không nè?
+2025-10-03 16:04:36,955 | DEBUG | TTSService | Starting TTS download for text length=68
+2025-10-03 16:04:36,955 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:04:40,542 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:06,982 | INFO | ConversationManager | User: ông ơi ông có biết cách làm đèn ông sao không ạ
+2025-10-03 16:05:06,982 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:05:06,982 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:05:10,102 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 1352
+2025-10-03 16:05:10,103 | INFO | RAGClient | RAG reply (len=592)
+2025-10-03 16:05:10,104 | INFO | ConversationManager | Bot: Ồ, ông vừa tra mạng xong thì thấy có nói về đèn ông sao đó cháu. Đèn ông sao là loại đèn lồng phổ biến và mang tính biểu tượng nhất, có hình ngôi sao 5 cánh. Hình ảnh ngôi sao 5 cánh được bao bọc bởi vòng tròn tượng trưng cho Ngũ hành âm dương, thể hiện sự cân bằng và hài hòa giữa các mối quan hệ trong cuộc sống, giữa con người với vạn vật. Đèn ông sao là biểu tượng của ánh sáng, niềm vui và hy vọng, là món đồ chơi không thể thiếu trong các buổi rước đèn. Tuy nhiên, ông chưa tìm thấy chi tiết cách làm đèn ông sao ở đây. Cháu có muốn ông tìm hiểu thêm về các loại đèn lồng khác không nè?
+2025-10-03 16:05:10,104 | DEBUG | TTSService | Starting TTS download for text length=592
+2025-10-03 16:05:10,104 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:05:12,560 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:12,686 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:05:15,214 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:15,304 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:05:18,398 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:18,695 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:18,791 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:05:23,103 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:23,519 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:23,599 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:05:26,121 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:05:26,416 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:05,239 | INFO | ConversationManager | User: ồ tiếc quá ạ
+2025-10-03 16:06:05,245 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:06:05,245 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:06:06,152 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 407
+2025-10-03 16:06:06,152 | INFO | RAGClient | RAG reply (len=149)
+2025-10-03 16:06:06,152 | INFO | ConversationManager | Bot: Ôi tiếc quá, ông chưa nhớ ra cách làm đèn ông sao. Để mai ông tra mạng thêm xem sao nhé. Cháu có muốn nghe ông kể về các loại đèn lồng khác không nè?
+2025-10-03 16:06:06,156 | DEBUG | TTSService | Starting TTS download for text length=149
+2025-10-03 16:06:06,156 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:06:09,085 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:09,909 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:40,194 | INFO | ConversationManager | User: thế ông có biết sự tích đèn kéo quân không ạ
+2025-10-03 16:06:40,194 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:06:40,194 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:06:42,601 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 1183
+2025-10-03 16:06:42,609 | INFO | RAGClient | RAG reply (len=493)
+2025-10-03 16:06:42,609 | INFO | ConversationManager | Bot: Ồ, ông vừa tra mạng xong thì thấy có kể về sự tích đèn kéo quân đó cháu. Ngày xưa, có một chàng trai tên là Lục Đức đã làm ra chiếc đèn kéo quân đẹp nhất để dâng vua. Chiếc đèn này có trục quay ở giữa tượng trưng cho trục trái đất, 6 mặt đèn diễn tả một trận đánh thắng quân thù. Khi đốt lên, đèn quay và hiện ra hình ảnh vua, quan, người, ngựa chạy nối nhau trông rất ngộ nghĩnh. Từ đó, người ta gọi là đèn kéo quân đó cháu. Cháu có muốn nghe ông kể thêm về cấu tạo của đèn kéo quân không nè?
+2025-10-03 16:06:42,609 | DEBUG | TTSService | Starting TTS download for text length=493
+2025-10-03 16:06:42,609 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:06:44,923 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:45,025 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:06:47,892 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:48,192 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:48,283 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:06:51,266 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:51,684 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:51,782 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:06:54,652 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:55,264 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:06:55,364 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:06:57,338 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:22:07,906 | DEBUG | datasets | PyTorch version 2.8.0+cpu available.
+2025-10-03 16:22:10,279 | INFO | sentence_transformers.SentenceTransformer | Use pytorch device_name: cpu
+2025-10-03 16:22:10,279 | INFO | sentence_transformers.SentenceTransformer | Load pretrained SentenceTransformer: hiieu/halong_embedding
+2025-10-03 16:22:10,300 | DEBUG | urllib3.connectionpool | Starting new HTTPS connection (1): huggingface.co:443
+2025-10-03 16:22:14,449 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/modules.json HTTP/1.1" 307 0
+2025-10-03 16:22:14,915 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/modules.json HTTP/1.1" 200 0
+2025-10-03 16:22:16,067 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/config_sentence_transformers.json HTTP/1.1" 307 0
+2025-10-03 16:22:17,089 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/config_sentence_transformers.json HTTP/1.1" 200 0
+2025-10-03 16:22:19,877 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/config_sentence_transformers.json HTTP/1.1" 307 0
+2025-10-03 16:22:19,927 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/config_sentence_transformers.json HTTP/1.1" 200 0
+2025-10-03 16:22:20,233 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/README.md HTTP/1.1" 307 0
+2025-10-03 16:22:20,708 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/README.md HTTP/1.1" 200 0
+2025-10-03 16:22:21,600 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/modules.json HTTP/1.1" 307 0
+2025-10-03 16:22:21,667 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/modules.json HTTP/1.1" 200 0
+2025-10-03 16:22:23,842 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/sentence_bert_config.json HTTP/1.1" 307 0
+2025-10-03 16:22:25,787 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/sentence_bert_config.json HTTP/1.1" 200 0
+2025-10-03 16:22:26,698 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/adapter_config.json HTTP/1.1" 404 0
+2025-10-03 16:22:27,598 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/config.json HTTP/1.1" 307 0
+2025-10-03 16:22:27,863 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/config.json HTTP/1.1" 200 0
+2025-10-03 16:22:29,029 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/tokenizer_config.json HTTP/1.1" 307 0
+2025-10-03 16:22:29,251 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/tokenizer_config.json HTTP/1.1" 200 0
+2025-10-03 16:22:31,883 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /hiieu/halong_embedding/resolve/main/1_Pooling/config.json HTTP/1.1" 307 0
+2025-10-03 16:22:32,043 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "HEAD /api/resolve-cache/models/hiieu/halong_embedding/b57776031035f70ed2030d2e35ecc533eb0f8f71/1_Pooling%2Fconfig.json HTTP/1.1" 200 0
+2025-10-03 16:22:32,662 | DEBUG | urllib3.connectionpool | https://huggingface.co:443 "GET /api/models/hiieu/halong_embedding HTTP/1.1" 200 6377
+2025-10-03 16:22:32,677 | DEBUG | faiss.loader | Environment variable FAISS_OPT_LEVEL is not set, so let's pick the instruction set according to the current CPU
+2025-10-03 16:22:32,678 | INFO | faiss.loader | Loading faiss with AVX2 support.
+2025-10-03 16:22:33,343 | INFO | faiss.loader | Successfully loaded faiss with AVX2 support.
+2025-10-03 16:23:11,284 | INFO | WhisperSTT | WhisperSTT client initialized. Calling localhost ASR service.
+2025-10-03 16:23:11,286 | DEBUG | TTSService | Playback thread started
+2025-10-03 16:23:11,286 | INFO | ConversationManager | Conversation manager started. Press ENTER to record, 'q' to quit.
+2025-10-03 16:23:21,303 | INFO | ConversationManager | User: alo ạ
+2025-10-03 16:23:21,304 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:23:21,308 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:23:21,311 | INFO | __main__ | Received new chat request
+2025-10-03 16:23:21,312 | DEBUG | __main__ | Request ID: 20251003T162311284-7e1ad3c8, Data length: 5
+2025-10-03 16:23:21,312 | DEBUG | __main__ | Creating new session with ID: 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:21,312 | DEBUG | __main__ | Using request ID: 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:21,312 | DEBUG | __main__ | Created new session for ID: 20251003T162311284-7e1ad3c8, total sessions: 1
+2025-10-03 16:23:21,313 | INFO | __main__ | Processing user input: 'alo ạ' for session 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:22,548 | INFO | __main__ | Agent execution completed successfully for session 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:22,549 | INFO | __main__ | Request completed successfully - Session: 0.000s, Agent: 1.237s, Total: 1.238s
+2025-10-03 16:23:22,551 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 326
+2025-10-03 16:23:22,553 | INFO | RAGClient | RAG reply (len=106)
+2025-10-03 16:23:22,554 | INFO | ConversationManager | Bot: Chào cháu, ông là Tiến sĩ Giấy đây. Hôm nay là Tết Trung Thu ở Bảo tàng, cháu có gì muốn hỏi ông không nè?
+2025-10-03 16:23:22,556 | DEBUG | TTSService | Starting TTS download for text length=106
+2025-10-03 16:23:22,557 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:23:26,751 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:23:27,028 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:23:50,145 | INFO | ConversationManager | User: ông ơi ông có biết sự tích chú cuội không ah
+2025-10-03 16:23:50,145 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:23:50,148 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:23:50,151 | INFO | __main__ | Received new chat request
+2025-10-03 16:23:50,151 | DEBUG | __main__ | Request ID: 20251003T162311284-7e1ad3c8, Data length: 44
+2025-10-03 16:23:50,151 | DEBUG | __main__ | Using existing session for ID: 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:50,152 | INFO | __main__ | Processing user input: 'ông ơi ông có biết sự tích chú cuội không ah' for session 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:50,792 | INFO | __main__ | Starting retrieval for query: 'sự tích chú cuội' (topk=4, w_content=1.0, w_header=1.0)
+2025-10-03 16:23:50,792 | DEBUG | __main__ | Searching header index...
+2025-10-03 16:23:50,981 | DEBUG | __main__ | Header search returned 4 results
+2025-10-03 16:23:50,981 | DEBUG | __main__ | Searching content index...
+2025-10-03 16:23:51,038 | DEBUG | __main__ | Content search returned 4 results
+2025-10-03 16:23:51,038 | DEBUG | __main__ | Calculating combined scores...
+2025-10-03 16:23:51,038 | DEBUG | __main__ | Total unique chunks with scores: 6
+2025-10-03 16:23:51,038 | DEBUG | __main__ | Selected top 4 chunks based on hybrid scores
+2025-10-03 16:23:51,038 | DEBUG | __main__ |   Rank 1: chunk_id=24, hybrid_score=0.9655
+2025-10-03 16:23:51,038 | DEBUG | __main__ |   Rank 2: chunk_id=25, hybrid_score=0.8004
+2025-10-03 16:23:51,040 | DEBUG | __main__ |   Rank 3: chunk_id=40, hybrid_score=0.4199
+2025-10-03 16:23:51,040 | DEBUG | __main__ |   Rank 4: chunk_id=44, hybrid_score=0.3973
+2025-10-03 16:23:51,040 | DEBUG | __main__ | Retrieved chunk 24: Trung thu > Truyền thuyết và văn hóa dân gian > Sự tích chú Cuội cung trăng | Content preview: Ngày xửa ngày xưa, ở một vùng quê nghèo, có một anh chàng tiều phu tên là Cuội sống hiền lành, thật ...
+2025-10-03 16:23:51,040 | DEBUG | __main__ | Retrieved chunk 25: Trung thu > Truyền thuyết và văn hóa dân gian > Sự tích Hằng Nga | Content preview: Tương truyền, vào thời xa xưa, trên trời xuất hiện mười ông mặt trời, cùng chiếu xuống mặt đất nóng ...
+2025-10-03 16:23:51,040 | DEBUG | __main__ | Retrieved chunk 40: Trung thu > Mâm ngũ quả > Chú chó bưởi | Content preview: Nguồn gốc và ý nghĩa: Chú chó bưởi là một vật trang trí độc đáo và đầy ý nghĩa trên mâm cỗ Trung thu...
+2025-10-03 16:23:51,040 | DEBUG | __main__ | Retrieved chunk 44: Trung thu > Trang trí và vật phẩm lễ hội (đồ chơi, vật phẩm) > Trống bỏi | Content preview: Làng Báo Đáp xã Hồng Quang, huyện Nam Trực, tỉnh Nam Định có truyền thống làm đèn ông sao với trống ...
+2025-10-03 16:23:51,040 | INFO | __main__ | Retrieval completed: 4 documents found, 0 chunks missing
+2025-10-03 16:23:51,040 | DEBUG | __main__ | Retrieved 4 documents for query: sự tích chú cuội
+2025-10-03 16:23:51,040 | DEBUG | __main__ | [timing] retrieve 0.247s
+2025-10-03 16:23:52,460 | INFO | __main__ | Agent execution completed successfully for session 20251003T162311284-7e1ad3c8
+2025-10-03 16:23:52,461 | INFO | __main__ | Request completed successfully - Session: 0.000s, Agent: 2.310s, Total: 2.310s
+2025-10-03 16:23:52,463 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 1176
+2025-10-03 16:23:52,464 | INFO | RAGClient | RAG reply (len=516)
+2025-10-03 16:23:52,464 | INFO | ConversationManager | Bot: À, ông vừa tra mạng xong thì thấy thế này nè cháu. Ngày xưa có anh tiều phu tên là Cuội, anh ấy nhặt được một cây thuốc thần có thể chữa bệnh và hồi sinh người chết. Nhưng vì vợ anh ấy lỡ tay làm hỏng cây thuốc, nên cây đã bay thẳng lên trời, cuốn cả Cuội theo lên cung trăng. Từ đó, Cuội sống một mình trên đó, ôm gốc cây thuốc và nhìn xuống trần gian. Người ta bảo mỗi khi trăng tròn, nhìn kỹ sẽ thấy bóng Cuội ngồi dưới gốc cây đó cháu ạ. Câu chuyện này còn dạy chúng ta về lòng trung thành và nỗi nhớ nhà nữa đó.
+2025-10-03 16:23:52,466 | DEBUG | TTSService | Starting TTS download for text length=516
+2025-10-03 16:23:52,467 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:23:57,479 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:23:57,565 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:02,789 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:03,073 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:03,156 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:06,959 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:07,384 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:07,481 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:10,468 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:10,568 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:13,248 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:13,349 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:17,060 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:48,810 | INFO | ConversationManager | User: ồ sao ông biết nhiều vậy ạ
+2025-10-03 16:24:48,811 | DEBUG | RAGClient | Sending to RAG webhook (attempt 1): http://127.0.0.1:7000/chat
+2025-10-03 16:24:48,813 | DEBUG | urllib3.connectionpool | Starting new HTTP connection (1): 127.0.0.1:7000
+2025-10-03 16:24:48,816 | INFO | __main__ | Received new chat request
+2025-10-03 16:24:48,817 | DEBUG | __main__ | Request ID: 20251003T162311284-7e1ad3c8, Data length: 26
+2025-10-03 16:24:48,817 | DEBUG | __main__ | Using existing session for ID: 20251003T162311284-7e1ad3c8
+2025-10-03 16:24:48,818 | INFO | __main__ | Processing user input: 'ồ sao ông biết nhiều vậy ạ' for session 20251003T162311284-7e1ad3c8
+2025-10-03 16:24:49,565 | INFO | __main__ | Agent execution completed successfully for session 20251003T162311284-7e1ad3c8
+2025-10-03 16:24:49,565 | INFO | __main__ | Request completed successfully - Session: 0.000s, Agent: 0.748s, Total: 0.749s
+2025-10-03 16:24:49,568 | DEBUG | urllib3.connectionpool | http://127.0.0.1:7000 "POST /chat HTTP/1.1" 200 527
+2025-10-03 16:24:49,569 | INFO | RAGClient | RAG reply (len=199)
+2025-10-03 16:24:49,571 | INFO | ConversationManager | Bot: Hì hì, ông là Tiến sĩ Giấy mà cháu, kiến thức thì bao la như biển cả vậy đó. Với lại, ông cũng hay đọc sách với xem tài liệu lắm, nên biết nhiều thứ lắm đó nha. Cháu còn gì muốn hỏi ông nữa không nè?
+2025-10-03 16:24:49,573 | DEBUG | TTSService | Starting TTS download for text length=199
+2025-10-03 16:24:49,574 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:52,541 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:52,880 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:52,968 | DEBUG | asyncio | Using proactor: IocpProactor
+2025-10-03 16:24:55,973 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])
+2025-10-03 16:24:56,538 | DEBUG | pydub.converter | subprocess.call(['ffmpeg', '-y', '-f', 'mp3', '-read_ahead_limit', '-1', '-i', 'cache:pipe:0', '-acodec', 'pcm_s16le', '-vn', '-f', 'wav', '-'])

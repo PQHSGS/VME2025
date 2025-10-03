@@ -5,6 +5,7 @@ import soundfile as sf
 import io
 from transformers import pipeline
 from faster_whisper import WhisperModel
+import google.generativeai as genai
 
 app = Flask(__name__)
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -51,7 +52,7 @@ def transcribe_audio():
         logging.info("Transcribing audio...")
         transcription_result, _ = asr_model.transcribe(
             audio_data,
-            beam_size=3,                   # explore a few alternatives for accuracy
+            beam_size=1,                   # explore a few alternatives for accuracy
             temperature=0.0,                 # still deterministic
             no_speech_threshold=0.7,        # a bit stricter than default
             hallucination_silence_threshold=1.5,  # tolerate longer pauses

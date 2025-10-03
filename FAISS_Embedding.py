@@ -224,7 +224,7 @@ if __name__ == "__main__":
     # full_text should be your document as a single string
     with open("D:\\Code\\VME\\Enhanced Flow\\Trung Thu.txt", "r", encoding="utf-8") as f:
         full_text = f.read()
-    build_indexes_from_text(full_text, save_dir = "Enhanced Flow/FAISS/full_db")
+    build_indexes_from_text(full_text, save_dir = "D:\Code\VME\Enhanced Flow\FAISS")
     # faiss_content, faiss_header, docs_content = load_indexes()
     # while True:
     #     q = input("Enter query (or 'exit'): ").strip()
