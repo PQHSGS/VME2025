@@ -241,17 +241,29 @@ def situation_match(query: str, thres: int = 1) -> List:
 def preprocess_query(query: str) -> str:
     situation = situation_match(query)
     if situation:
-        print('Special situation')
         question = situation.metadata.get('question', '')
         guidance = situation.metadata.get('guidance', '')
         answer = situation.metadata.get('answer', '')
-        query = f"""\n\n---\n\n ###Trong lượt trả lời này, câu hỏi người dùng đã kích hoạt tình huống đặc biệt. Hãy tham khảo và đưa ra trả lời nếu tình huống gợi ý là phù hợp với ngữ cảnh. Nếu không, hãy trả lời một cách tự nhiên và thân thiện như bình thường.
-            *Tin nhắn người dùng: {query}
-            *Tình huống gợi ý: {question}
-            *Hướng dẫn trả lời: {guidance}
-        """
-        if answer != '':
-            query += f"*Câu trả lời mẫu: {answer}"
+        query = f"""
+---
+### NGỮ CẢNH HIỆN TẠI
+*Tin nhắn người dùng:* {query}
+
+### TÌNH HUỐNG GỢI Ý (có thể KHÔNG liên quan)
+{question}
+
+### HƯỚNG DẪN PHẢN HỒI
+Nếu tình huống gợi ý **thực sự phù hợp với nội dung tin nhắn**, hãy:
+- Trả lời dựa theo hướng dẫn và văn phong trong câu trả lời mẫu.
+- Giữ lời nói tự nhiên, giống cách nói đời thường của Ông Tiến sĩ Giấy AI.
+
+Nếu tình huống gợi ý **không khớp hoặc không liên quan**, hãy:
+- Bỏ qua phần tình huống.
+- Trả lời tự nhiên, thân thiện, đúng mạch hội thoại.
+
+{f"### CÂU TRẢ LỜI MẪU (chỉ tham khảo nếu phù hợp): {answer}" if answer else ""}
+"""
+        logger.info(f'Special situation: matched question="{question}", guidance="{guidance}", answer="{answer}"')
     return query
     
 
