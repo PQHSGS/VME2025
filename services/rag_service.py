@@ -124,7 +124,7 @@ def _init_rag():
             "loaded" if _retriever and _retriever.ready else "MISSING - run rag.ingest",
             len(_situations.rows) if _situations else 0,
         )
-    except Exception as exc:
+    except Exception:
         logger.exception("RAG init failed")
         _embedder = None
         _retriever = None

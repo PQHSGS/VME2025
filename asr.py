@@ -166,7 +166,6 @@ class GipformerSTT:
         if not self.ready:
             logger.warning("gipformer ASR not loaded yet; dropping %d samples", audio.size)
             return ""
-        import sherpa_onnx  # lazy import for the float32 conversion only
 
         stream = self._recognizer.create_stream()  # type: ignore[union-attr]
         # sherpa-onnx expects float32 numpy; ensure contiguous.

@@ -88,7 +88,6 @@ class NemotronBackend:
     name = "nemotron-0.6b"
 
     def load(self):
-        import torch
         from transformers import AutoProcessor, Nemotron3_5AsrForRNNT
 
         mid = "nvidia/nemotron-3.5-asr-streaming-0.6b"
@@ -122,12 +121,11 @@ def main() -> int:
     args = ap.parse_args()
 
     manifest_path = DATA / "manifest.jsonl"
-    rows = [json.loads(l) for l in open(manifest_path, encoding="utf-8")]
+    rows = [json.loads(line) for line in open(manifest_path, encoding="utf-8")]
     if args.limit:
         rows = rows[:args.limit]
     print(f"{len(rows)} clips from {manifest_path}")
 
-    import numpy as np
     import soundfile as sf
 
     results = []

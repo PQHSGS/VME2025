@@ -30,8 +30,6 @@ def main() -> int:
     audio_col = "audio" if "audio" in col_names else col_names[0]
     raw_col = ("raw_transcription" if "raw_transcription" in col_names
                else "transcription")
-    norm_col = "transcription"
-
     audio_dir = OUT / "audio"
     audio_dir.mkdir(parents=True, exist_ok=True)
     manifest = OUT / "manifest.jsonl"

@@ -294,11 +294,23 @@ class ServiceManager:
                     changed_all = True
                 elif not changed_all:
                     changed.add(owner)
-            targets = list(self.services) if changed_all else sorted(changed)
-            for name in targets:
+            # Never hijack externally-managed processes (operator runs them
+            # in their own terminals): changing their code is THEIR restart.
+            targets = []
+            for name in list(self.services) if changed_all else sorted(changed):
                 svc = self.services.get(name)
                 if svc is None:
                     continue
+                if svc.external:
+                    logger.info(
+                        "[hot-reload] %s is operator-managed - restart it "
+                        "yourself (rerun its terminal)",
+                        name,
+                    )
+                    continue
+                targets.append(name)
+            for name in targets:
+                svc = self.services[name]
                 svc.restart()
                 threading.Thread(target=svc.wait_ready, daemon=True).start()
 

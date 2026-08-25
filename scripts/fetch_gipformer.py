@@ -21,7 +21,6 @@ def fetch(name: str) -> None:
     tmp = out.with_suffix(out.suffix + ".part")
     started = time.perf_counter()
     with urllib.request.urlopen(url) as resp, open(tmp, "wb") as fh:
-        total = int(resp.headers.get("content-length", 0))
         done = 0
         while True:
             chunk = resp.read(1 << 20)

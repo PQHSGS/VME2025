@@ -45,7 +45,6 @@ def main() -> int:
             return 1
 
         from services.clients import (
-            RemoteEmbedder,
             RemoteLLM,
             RemoteRetriever,
             RemoteSTT,
@@ -66,7 +65,11 @@ def main() -> int:
             hit = situations.match("chào ông")
             print(f"[smoke] situation hit={hit is not None}")
         if "tts" in names and "tts" not in failed:
+            from services.clients import RemoteSynth, build_remote_tts_player
+            from tts import TTSPlayer
+
             player = build_remote_tts_player(cfg)
+            assert isinstance(player, TTSPlayer)  # factory wiring stays intact
             pcm, rate = RemoteSynth(cfg)("Xin chào các em nhỏ!")
             print(f"[smoke] synth {pcm.size} samples @ {rate}Hz dtype={pcm.dtype}")
             ok &= rate == 24000 and pcm.dtype == np.int16 and pcm.size > 0
