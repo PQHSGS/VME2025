@@ -1,0 +1,17 @@
+# secrets
+.env
+
+# runtime artifacts
+logs/
+data/faiss/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# large local bench assets (FLEURS audio + parquet) - re-fetch via
+# scripts/prep_asr_bench.py when needed
+data/asr_bench/
+
+# service subprocess logs
+logs/services/

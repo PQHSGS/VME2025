@@ -1,0 +1,29 @@
+# Core
+numpy>=1.26
+python-dotenv>=1.0
+
+# Retrieval
+faiss-cpu>=1.8
+sentence-transformers>=3.0
+
+# Speech
+faster-whisper>=1.0          # legacy ASR fallback (ASR_BACKEND=whisper)
+sherpa-onnx>=1.13            # gipformer-65M int8 ASR (default)
+sounddevice>=0.4.6
+soundfile>=0.12          # libsndfile >=1.2 reads mp3 directly
+edge-tts>=6.1            # cloud fallback voice
+vieneu                   # VieNeu-TTS v3 Turbo (local ONNX; optional but recommended)
+                         # absence -> automatic edge-tts fallback
+onnxruntime>=1.20        # smart turn end-of-turn model (needs IR version 10)
+
+# LLM client
+google-genai>=1.46        # Gemini backend (>=1.46 fixes a concurrency latency regression)
+h2>=4                     # HTTP/2 for the google-genai transport (client_args http2=True)
+
+# Microservice layer (optional; used with --microservice flag)
+fastapi>=0.115
+uvicorn>=0.34
+httpx>=0.28
+
+# Dev / tests
+pytest>=8.0
