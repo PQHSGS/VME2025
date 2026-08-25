@@ -30,6 +30,10 @@ import numpy as np
 
 logger = logging.getLogger("services.clients")
 
+# Health-heartbeat probes are routine (1 per READY_TTL_S per service);
+# httpx's per-request INFO lines would spam the kiosk console forever.
+logging.getLogger("httpx").setLevel(logging.WARNING)
+
 _READY_TTL_S = 5.0
 
 

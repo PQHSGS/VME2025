@@ -46,10 +46,7 @@ class VienneuSynth:
                         self.voice,
                         self.threads or "auto",
                     )
-                    kwargs = {"backend": self.backend}
-                    if self.threads:
-                        kwargs["threads"] = self.threads
-                    self._model = Vieneu(**kwargs)
+                    self._model = Vieneu(backend=self.backend, threads=self.threads or 0)
                     self._validate_voice()
         return self._model
 
