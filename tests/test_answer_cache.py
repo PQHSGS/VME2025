@@ -99,8 +99,8 @@ def test_short_or_truncated_replies_rejected():
 # ---------------------------------------------------------------------------
 def test_first_clause_emitted_at_first_comma():
     sp = SentenceSplitter(early_first_clause=True)
-    out = sp.push("Vâng, đèn ông sao được làm từ tre")
-    assert out == ["Vâng"]
+    out = sp.push("Đúng, đèn ông sao được làm từ tre")
+    assert out == ["Đúng"]
     rest = sp.push(" và giấy bóng kính. Bên dưới gắn chuông nhỏ.") + sp.flush()
     assert any("đèn ông sao" in s for s in rest)
 
@@ -113,8 +113,8 @@ def test_first_clause_disabled_by_default():
 
 def test_first_clause_only_once():
     sp = SentenceSplitter(early_first_clause=True)
-    first = sp.push("Vâng, ông nói tiếp đây")
-    assert first == ["Vâng"]
+    first = sp.push("Đúng, ông nói tiếp đây")
+    assert first == ["Đúng"]
     # after the clause was emitted, later commas must NOT split again
     second = sp.push(" với nhiều chi tiết, và câu kết thúc ở đây.")
     assert all(", " not in s or "chi tiết, và" in s for s in second + sp.flush())

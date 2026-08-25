@@ -93,25 +93,34 @@ class GeminiBackend:
         thinking_level: str | None = "minimal",
         base_url: str | None = None,
     ):
-        from google import genai  # lazy heavy-ish import
+        from google import genai
+        from google.genai import types
 
         self.name = "gemini"
         self.model = model
         self.thinking_level = thinking_level
         # HTTP/2 + keepalive: one warm connection matters after idle gaps.
-        # (httpx ships HTTP/2 disabled; opt in per SDK docs.)
-        http_options = {
-            "client_args": {"http2": True},
-            "async_client_args": {"http2": True},
-        }
+        # Must be a TYPED HttpOptions: google-genai 2.x mishandles base_url
+        # when handed the legacy raw dict (request URL loses its scheme).
+        options = types.HttpOptions(
+            client_args={"http2": True},
+            async_client_args={"http2": True},
+        )
         if base_url:
-            http_options["base_url"] = base_url
-        self._client = genai.Client(api_key=api_key, http_options=http_options)
+            options.base_url = base_url
+        self._client = genai.Client(api_key=api_key, http_options=options)
 
     @staticmethod
     def _split_messages(messages: list[dict]) -> tuple[str, list[dict]]:
         system_parts = [m["content"] for m in messages if m.get("role") == "system"]
         rest = [m for m in messages if m.get("role") != "system"]
+        # google-genai 2.x rejects requests whose LAST content turn is a
+        # model turn ("Requests ending with a model turn are not supported").
+        # Our prompt contract ends with the pre-ack assistant turn
+        # (prompts.build_messages) - valid for OpenAI-style APIs, illegal
+        # here, so strip trailing model turns at this boundary.
+        while rest and rest[-1].get("role") == "assistant":
+            rest.pop()
         return "\n\n".join(system_parts), rest
 
     def _config(

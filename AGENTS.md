@@ -20,18 +20,32 @@ graceful degradation. No agentic loops — one LLM round-trip per turn.
 Do not introduce LangChain/LangGraph or agent frameworks into the hot path;
 this orchestrator is deliberately a hand-rolled state machine.
 
+## Environment — MANDATORY
+
+All Python commands MUST run inside the project venv:
+
+```
+D:\Code\VME\.vme_tsg\Scripts\python.exe        # direct (safest for agents)
+D:\Code\VME\.vme_tsg\Scripts\Activate.ps1      # or activate first
+```
+
+A bare `python` resolves to the system install, which is missing
+faiss/torch/vieneu/sherpa-onnx and fails with confusing ImportErrors.
+
 ## Commands
 
 ```bash
-pip install -r requirements.txt      # copy .env.example .env first
-python -m rag.ingest                 # ONE TIME: build data/faiss from data/kb/*.txt
-python -m pytest tests -q            # full test suite (mock-safe, offline)
-python run.py --check                # component health report, no downloads
-python run.py --dev                  # typed turns, same brain as voice mode
-python run.py                        # voice loop
-python scripts/bench_rag.py          # hit@k + MRR vs golden QA (index required)
-python scripts/bench_latency.py      # per-stage latency percentiles
-python scripts/trace_summary.py      # summarize logs/traces.jsonl after a show-hour
+D:\Code\VME\.vme_tsg\Scripts\python.exe -m pip install -r requirements.txt   # copy .env.example .env first
+D:\Code\VME\.vme_tsg\Scripts\python.exe -m rag.ingest    # ONE TIME: build data/faiss from data/kb/*.txt
+D:\Code\VME\.vme_tsg\Scripts\python.exe -m pytest tests -q               # full test suite (mock-safe, offline)
+D:\Code\VME\.vme_tsg\Scripts\python.exe run.py --check   # component health report, no downloads
+D:\Code\VME\.vme_tsg\Scripts\python.exe run.py --dev     # typed turns, same brain as voice mode
+D:\Code\VME\.vme_tsg\Scripts\python.exe run.py           # voice loop
+D:\Code\VME\.vme_tsg\Scripts\python.exe run.py --microservice  # services on :8001-8004 + kiosk controller
+D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/smoke_services.py --only rag,tts,llm  # e2e service check
+D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/bench_rag.py         # hit@k + MRR vs golden QA (index required)
+D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/bench_latency.py     # per-stage latency percentiles
+D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/trace_summary.py     # summarize logs/traces.jsonl after a show-hour
 ```
 
 Heavy deps (faiss, torch, faster_whisper, edge_tts, vieneu) are imported
@@ -45,6 +59,28 @@ existing tests.
 |---|---|
 | `config.py` | all knobs, env-overridable via `.env`; fixed constants (paths, sample rate) at module level |
 | `orchestrator.py` | turn state machine; circuit breaker; idle session rotation; embed-once for all downstream consumers |
+| `services/asr_service.py` | ASR on :8001 — gipformer transcribe over HTTP |
+| `services/llm_service.py` | LLM on :8002 — Gemini stream (SSE, JSON-framed) / complete |
+| `services/rag_service.py` | RAG on :8003 — embedder + FAISS retrieve (+memory ctx shim) + situations |
+| `services/tts_service.py` | TTS on :8004 — pure text->PCM synth; never plays audio |
+| `services/clients.py` | Remote* stand-ins matching local protocols; injected by `--microservice` |
+| `services/manager.py` | process supervisor: spawn/adopt/crash-respawn/hot-reload watcher |
+| `services/common.py` | shared service bootstrap (path shim, logging, cfg, bg init) |
+
+## Conventions
+
+- Python 3.11+ style, type hints on public functions, module docstrings
+  explaining *why*, Vietnamese user-facing strings, English code/comments.
+- Naming: "ASR" = the speech-to-text component/service; "stt" = the injected
+  transcriber role in the orchestrator. Keep Remote* clients attribute-for-
+  attribute compatible with their local twins.
+- Never edit UTF-8 files via PowerShell Get-Content/Set-Content — PS5.1
+  defaults to ANSI and silently mojibakes Vietnamese strings. Use the Edit
+  tool or Python io.
+- New config goes through `_env_*` helpers in `config.py` +
+  `.env.example` documentation. In .env files keep empty values truly bare
+  (`KEY=`) — python-dotenv v1.1 turns `KEY=   # comment` into the comment
+  text being the value (config._env defends against leading '#').
 | `memory.py` | layered session memory (facts / rolling summary / recent window) |
 | `prompts.py` + `prompts/system_prompt.md` | budgeted prompt assembly |
 | `rag/retriever.py` | gate → FAISS → seen-chunk penalty → MMR (chunk vectors cached) → char budget |
@@ -52,6 +88,7 @@ existing tests.
 | `answer_cache.py` | semantic replay cache for repeated questions (exact + cosine tiers; follow-up guarded) |
 | `llm.py` | backends gemini/mock; `select_backend` fails loud |
 | `asr.py` | gipformer-65M int8 via sherpa-onnx (default); WhisperSTT legacy fallback |
+| `asr_correct.py` | zero-latency domain-homophone post-filter; venue overrides via `data/asr_homophones.csv` |
 | `tts.py` | engine chain VieNeu → edge-tts → text-only; queue/cache/barge-in bookkeeping |
 | `tts_vienneu.py` | VieNeu-TTS v3 Turbo wrapper (`vieneu` SDK) |
 | `audio.py` | push-to-talk capture, smart-turn/silence auto-stop, cached noise floor |
@@ -100,6 +137,8 @@ existing tests.
   available via `ASR_BACKEND=whisper`.
 - Targets both CPU-only boxes (ONNX/int8 paths) and small NVIDIA GPUs (4–7GB).
 - `onnxruntime>=1.20` is required (smart-turn model uses IR version 10).
+- gipformer int8 ONNX files: `python scripts/fetch_gipformer.py`
+  (HF: g-group-ai-lab/gipformer-65M-rnnt, ~70MB total).
 - Gemini transport: HTTP/2 enabled via `client_args`; `google-genai` pinned
   ≥1.46 (concurrency latency fix). httpx keepalive expires after ~5s idle, so
   the first turn after a long gap pays TCP+TLS again (~200ms) — accepted.
@@ -164,3 +203,14 @@ Nemotron-3.5-asr-streaming-0.6b tested but NumPy/Numba incompatibility
 prevented bench; streaming capability would unlock speculative speech
 processing but requires GPU. Qwen3-ASR-0.6B/1.7B on watchlist. TTS: stay
 on VieNeu v3 Turbo (Magpie TTS has great Vi CER but requires NIM/GPU).
+
+<!-- CODEGRAPH_START -->
+## CodeGraph
+
+In repositories indexed by CodeGraph (a `.codegraph/` directory exists at the repo root), reach for it BEFORE grep/find or reading files when you need to understand or locate code:
+
+- **MCP tool** (when available): `codegraph_explore` answers most code questions in one call — the relevant symbols' verbatim source plus the call paths between them, including dynamic-dispatch hops grep can't follow. Name a file or symbol in the query to read its current line-numbered source. If it's listed but deferred, load it by name via tool search.
+- **Shell** (always works): `codegraph explore "<symbol names or question>"` prints the same output.
+
+If there is no `.codegraph/` directory, skip CodeGraph entirely — indexing is the user's decision.
+<!-- CODEGRAPH_END -->

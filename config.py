@@ -49,7 +49,13 @@ _load_env()
 
 def _env(key: str, default: str | None = None) -> str | None:
     value = os.environ.get(key)
-    return value if value not in (None, "") else default
+    if value is None or value == "":
+        return default
+    # python-dotenv keeps `KEY=   # comment` as the literal comment text;
+    # no legitimate setting starts with '#', so treat that as unset.
+    if value.lstrip().startswith("#"):
+        return default
+    return value
 
 
 def _env_str(key: str, default: str) -> str:
@@ -94,7 +100,7 @@ class Config:
     llm_max_tokens: int = _env_int("LLM_MAX_TOKENS", 220)
     # Filler spoken if no first token by this delay; lower = less dead air.
     ttft_filler_after_s: float = _env_float("TTFT_FILLER_AFTER_S", 1.8)
-    # Release the opening clause at the first comma (e.g. "Vâng, ...").
+    # Release the opening clause at the first comma (e.g. "Đúng, ...").
     ttfa_first_clause: bool = field(
         default_factory=lambda: _env_bool("TTFA_FIRST_CLAUSE", True)
     )
@@ -107,6 +113,33 @@ class Config:
     # ASR — gipformer-65M int8 via sherpa-onnx (default)
     # ==================================================================
     asr_backend: str = _env_str("ASR_BACKEND", "gipformer")  # gipformer | whisper
+    # Legacy whisper (EraX CT2) knobs — only read when ASR_BACKEND=whisper.
+    asr_model: str = _env_str("ASR_MODEL", "EraX-WoW-Turbo-V1.1")
+    asr_device: str = _env_str("ASR_DEVICE", "auto")  # auto | cpu | cuda
+    asr_compute_type: str = _env_str("ASR_COMPUTE_TYPE", "auto")
+    asr_cpu_threads: int = _env_int("ASR_CPU_THREADS", 4)
+    # Decoding knobs shared by both backends.
+    asr_language: str = _env_str("ASR_LANGUAGE", "vi")
+    asr_beam_size: int = _env_int("ASR_BEAM_SIZE", 5)
+    asr_vad_filter: bool = field(default_factory=lambda: _env_bool("ASR_VAD_FILTER", True))
+    asr_condition_on_previous_text: bool = field(
+        default_factory=lambda: _env_bool("ASR_CONDITION_ON_PREVIOUS_TEXT", False)
+    )
+    asr_hotwords: str = _env_str(
+        "ASR_HOTWORDS",
+        "Trung Thu, bảo tàng, dân tộc học, tiến sĩ giấy, múa lân, rối nước,"
+        " đèn ông sao, bánh dẻo, bánh nướng, tò he",
+    )
+
+    # ==================================================================
+    # Capture — push-to-talk end-of-turn windows
+    # ==================================================================
+    # [TUNE] legacy fixed quiet window when smart-turn is off/failed.
+    silence_end_ms: float = _env_float("SILENCE_END_MS", 1200.0)
+    # Speech shorter than this is treated as noise and dropped.
+    min_speech_ms: float = _env_float("MIN_SPEECH_MS", 250.0)
+    # Hard cap on a single utterance.
+    max_utterance_seconds: float = _env_float("MAX_UTTERANCE_SECONDS", 15.0)
 
     # ==================================================================
     # TTS — engine chain: vienneu (local) -> edge-tts (cloud) -> text-only
@@ -122,11 +155,15 @@ class Config:
     tts_max_consecutive_failures: int = _env_int("TTS_MAX_CONSECUTIVE_FAILURES", 3)
     # Keep playback device open across visitor gaps; reopen costs ~50-100ms.
     tts_idle_close_s: float = _env_float("TTS_IDLE_CLOSE_S", 300.0)
+    # [TUNE] fillers spoken while the LLM is slow; pipe-separated in env.
     filler_phrases: list[str] = field(
         default_factory=lambda: [
-            "Ờm để ông nghĩ chút nào.",
-            "Chờ ông một nhịp nhé.",
-            "Hừm, để ông nhớ lại đã.",
+            p.strip()
+            for p in _env_str(
+                "FILLER_PHRASES",
+                "Ờm để ông nghĩ chút nào.|Chờ ông một nhịp nhé.|Hừm, để ông nhớ lại đã.",
+            ).split("|")
+            if p.strip()
         ]
     )
     fallback_reply: str = _env_str(
@@ -256,6 +293,14 @@ class Config:
     telemetry_enabled: bool = field(
         default_factory=lambda: _env_bool("TELEMETRY_ENABLED", True)
     )
+
+    # ==================================================================
+    # Microservice mode (--microservice) — component base URLs
+    # ==================================================================
+    asr_service_url: str = _env_str("ASR_SERVICE_URL", "http://127.0.0.1:8001")
+    llm_service_url: str = _env_str("LLM_SERVICE_URL", "http://127.0.0.1:8002")
+    rag_service_url: str = _env_str("RAG_SERVICE_URL", "http://127.0.0.1:8003")
+    tts_service_url: str = _env_str("TTS_SERVICE_URL", "http://127.0.0.1:8004")
 
     def ensure_dirs(self) -> None:
         LOG_DIR.mkdir(parents=True, exist_ok=True)

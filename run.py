@@ -1,10 +1,13 @@
 """Entrypoint for the realtime voice RAG chatbot.
 
 Modes:
-  python run.py                 # full voice loop (mic + TTS + LLM)
-  python run.py --dev           # type text instead of talking; same brain
-  python run.py --no-tts        # voice input, text-only output
-  python run.py --check         # component health report, then exit
+  python run.py                    # full voice loop (mic + TTS + LLM)
+  python run.py --dev              # type text instead of talking; same brain
+  python run.py --no-tts           # voice input, text-only output
+  python run.py --check            # component health report, then exit
+  python run.py --microservice     # same kiosk, brain split across services
+                                   # (ASR/LLM/RAG/TTS on ports 8001-8004,
+                                   #  hot-reload per component)
 """
 
 from __future__ import annotations
@@ -16,22 +19,26 @@ import sys
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Realtime voice RAG chatbot")
+    # --no-asr kept as a deprecated alias: it was behaviorally identical to
+    # --dev (typed turns, no mic), so two flags for one mode invited drift.
     parser.add_argument(
-        "--dev", action="store_true", help="keyboard-driven mode; no mic needed"
+        "--dev",
+        "--no-asr",
+        dest="dev",
+        action="store_true",
+        help="typed turns, no mic needed (alias: --no-asr)",
     )
     parser.add_argument("--no-tts", action="store_true", help="disable speech output")
-    parser.add_argument(
-        "--no-asr",
-        action="store_true",
-        help="disable speech input (implies typed turns)",
-    )
     parser.add_argument(
         "--check", action="store_true", help="print component status and exit"
     )
     parser.add_argument(
         "--microservice",
         action="store_true",
-        help="run as microservices (ASR/LLM/RAG/TTS on separate ports with hot-reload)",
+        help=(
+            "run components as local services (ports 8001-8004) with hot-reload;"
+            " controller keeps mic/playback/memory and calls them over HTTP"
+        ),
     )
     return parser.parse_args(argv)
 
@@ -39,11 +46,55 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def build_components(cfg, args):
     """Wire concrete implementations; heavy imports happen lazily inside."""
     from answer_cache import AnswerCache
-    from asr import GipformerSTT, WhisperSTT
     from audio import MicRecorder  # noqa: F401 - imported to fail fast on install issues
-    from config import FAISS_DIR, SITUATIONS_CSV
-    from llm import select_backend
     from memory import MemoryManager
+
+    memory_manager = MemoryManager(cfg)
+
+    if getattr(args, "microservice", False):
+        # Same ConversationOrchestrator, remote component stand-ins. Heavy
+        # state (embedder/index/TTS weights) lives in the services and
+        # survives controller restarts; only edited components reload.
+        from services.clients import (
+            RemoteLLM,
+            RemoteRetriever,
+            RemoteSTT,
+            RemoteSituations,
+            build_remote_tts_player,
+        )
+
+        retriever = RemoteRetriever(cfg)
+        situations = RemoteSituations(cfg)
+        stt = None if args.dev else RemoteSTT(cfg)
+        tts = None if args.no_tts else build_remote_tts_player(cfg)
+        answer_cache = (
+            AnswerCache(cfg, retriever.embedder)
+            if cfg.answer_cache_enabled
+            else None
+        )
+
+        from orchestrator import ConversationOrchestrator
+
+        orch = ConversationOrchestrator(
+            cfg,
+            retriever=retriever,
+            situations=situations,
+            memory_manager=memory_manager,
+            stt=stt,
+            tts=tts,
+            answer_cache=answer_cache,
+        )
+        if not args.check:
+            orch.llm = RemoteLLM(cfg)
+        else:
+            from llm import MockBackend
+
+            orch.llm = MockBackend()
+        return orch
+
+    # ---- monolith path --------------------------------------------------
+    from asr import GipformerSTT, WhisperSTT
+    from llm import select_backend
     from rag.embedder import SentenceTransformersEmbedder
     from rag.retriever import Retriever
     from rag.situations import SituationMatcher
@@ -56,9 +107,8 @@ def build_components(cfg, args):
     )
     retriever = Retriever(cfg, embedder)
     situations = SituationMatcher(cfg, embedder)
-    memory_manager = MemoryManager(cfg)
     stt_cls = GipformerSTT if cfg.asr_backend == "gipformer" else WhisperSTT
-    stt = None if args.no_asr or args.dev else stt_cls(cfg)
+    stt = None if args.dev else stt_cls(cfg)
     # Probe catches a broken local TTS at startup (not mid-show); --check
     # stays fast and download-free.
     tts = None if args.no_tts else build_tts_player(cfg, probe=not args.check)
@@ -86,6 +136,8 @@ def build_components(cfg, args):
 
 
 def health_report(orch) -> int:
+    from config import FAISS_DIR, SITUATIONS_CSV
+
     cfg = orch.cfg
     lines: list[tuple[str, str]] = []
 
@@ -173,7 +225,33 @@ def health_report(orch) -> int:
     return 0 if ok else 1
 
 
+def report_services(manager) -> int:
+    """--check for microservice mode: probe each service's /health."""
+    health = manager.health()
+    print("\n--- services ---")
+    ok = True
+    for name, data in health.items():
+        status = data.get("status", "unreachable")
+        flag = "ok" if status == "ok" else "!!"
+        ok &= flag == "ok"
+        detail = data.get("engine") or data.get("backend") or data.get("detail") or ""
+        extra = f" ({detail})" if detail else ""
+        chunks = data.get("index_chunks")
+        if chunks:
+            extra += f" [{chunks} chunks]"
+        print(f"[{flag}] {name:>6}: {status}{extra}")
+    return 0 if ok else 1
+
+
 def main(argv: list[str] | None = None) -> int:
+    # Force UTF-8 stdio even when stdout is a pipe or the console codepage
+    # is legacy - Vietnamese must survive every transport (PS5.1 lesson).
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
     args = parse_args(argv)
     from config import Config, setup_logging
 
@@ -181,67 +259,51 @@ def main(argv: list[str] | None = None) -> int:
     setup_logging(cfg)
     cfg.ensure_dirs()
 
-    # --check and --microservice don't need the full monolithic build
-    if args.check:
-        orch = build_components(cfg, args)
-        return health_report(orch)
-
+    manager = None
     if args.microservice:
-        import signal
-        import time as _time
-
         from services.manager import ServiceManager
 
-        manager = ServiceManager(enable_reload=True)
-
-        def shutdown(sig, frame):
-            print("\nStopping services...")
-            manager.stop_all()
-            sys.exit(0)
-
-        signal.signal(signal.SIGINT, shutdown)
-        signal.signal(signal.SIGTERM, shutdown)
-
+        manager = ServiceManager(enable_reload=not args.check)
         manager.start_all()
-        print("\n=== Microservice Manager ===")
-        for name, svc in manager.services.items():
-            status = "ok" if svc.ready else "FAIL"
-            print(f"  [{status}] {name:>6}: port {svc.port}")
-        print("\nHot-reload: ON (edit .py files, service auto-restarts)")
-        print("Ctrl+C to stop all services.\n")
-        try:
+        if args.check:
+            code = report_services(manager)
+            manager.stop_all()
+            return code
+
+    try:
+        orch = build_components(cfg, args)
+        if args.check:
+            return health_report(orch)
+
+        logging.getLogger(__name__).info("starting session %s", orch.session_id)
+        orch.warmup()
+
+        if args.dev:
+            print("Dev mode: gõ câu hỏi, Enter để gửi, 'q' để thoát.")
             while True:
-                _time.sleep(1)
-        except KeyboardInterrupt:
-            shutdown(None, None)
+                try:
+                    text = input("> ").strip()
+                except (EOFError, KeyboardInterrupt):
+                    break
+                if text.lower() in {"q", "quit", "exit"}:
+                    break
+                if not text:
+                    continue
+                reply = orch.process_text(text)
+                print(f"Ã´ng giáº¥y: {reply}\n")
+            orch.join_background_work(timeout=3.0)
+            if orch.tts:
+                orch.tts.close()
+            return 0
 
-    orch = build_components(cfg, args)
-    logging.getLogger(__name__).info("starting session %s", orch.session_id)
-    orch.warmup()
-
-    if args.dev or args.no_asr:
-        print("Dev mode: gõ câu hỏi, Enter để gửi, 'q' để thoát.")
-        while True:
-            try:
-                text = input("> ").strip()
-            except (EOFError, KeyboardInterrupt):
-                break
-            if text.lower() in {"q", "quit", "exit"}:
-                break
-            if not text:
-                continue
-            reply = orch.process_text(text)
-            print(f"ông giấy: {reply}\n")
+        orch.run_voice()
         orch.join_background_work(timeout=3.0)
         if orch.tts:
             orch.tts.close()
         return 0
-
-    orch.run_voice()
-    orch.join_background_work(timeout=3.0)
-    if orch.tts:
-        orch.tts.close()
-    return 0
+    finally:
+        if manager is not None:
+            manager.stop_all()
 
 
 if __name__ == "__main__":

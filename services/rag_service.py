@@ -14,24 +14,15 @@ Endpoints:
 
 from __future__ import annotations
 
-import logging
-import os
-import sys
-import time
-
 import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from services.common import bootstrap, init_in_background
 
-from config import Config
-
-logger = logging.getLogger("rag_service")
-logging.basicConfig(level=logging.INFO)
+logger, cfg = bootstrap("rag_service")
 
 app = FastAPI(title="RAG Service")
-cfg = Config()
 _embedder = None
 _retriever = None
 _situations = None
@@ -46,10 +37,24 @@ class EmbedResponse(BaseModel):
     dim: int
 
 
+class MemoryCtx(BaseModel):
+    """Lightweight stand-in for the controller's SessionMemory.
+
+    Carries exactly the three things Retriever.retrieve() reads off memory:
+    follow-up enrichment (topics + shape hint) and the seen-chunk dedup
+    window. Keeps parity with monolith behavior across the HTTP boundary.
+    """
+
+    topics: str = ""
+    looks_like_followup: bool = False
+    seen_chunk_ids: list[str] = []
+
+
 class RetrieveRequest(BaseModel):
     query: str
     q_vec: list[float] | None = None
     force: bool = False
+    memory_ctx: MemoryCtx | None = None
 
 
 class RetrievedDoc(BaseModel):
@@ -77,35 +82,68 @@ class SituationResponse(BaseModel):
     score: float | None = None
 
 
+class _MemoryShim:
+    """Duck-typed memory for Retriever.retrieve(memory=...) — see MemoryCtx."""
+
+    def __init__(self, ctx: MemoryCtx):
+        self._ctx = ctx
+
+    def looks_like_followup(self, query: str) -> bool:
+        return self._ctx.looks_like_followup
+
+    def last_topics(self, n_exchanges: int = 2) -> str:
+        return self._ctx.topics
+
+    def recently_seen_chunk_ids(self, window_turns: int = 3) -> set[str]:
+        return set(self._ctx.seen_chunk_ids)
+
+
 def _init_rag():
     global _embedder, _retriever, _situations
     from rag.embedder import SentenceTransformersEmbedder
     from rag.retriever import Retriever
     from rag.situations import SituationMatcher
 
-    _embedder = SentenceTransformersEmbedder(
-        cfg.embed_model,
-        query_prompt=cfg.embed_query_prompt,
-        num_threads=cfg.embed_threads,
-    )
-    _retriever = Retriever(cfg, _embedder)
-    _retriever.load()
-    _retriever.warm_vectors()
-    _situations = SituationMatcher(cfg, _embedder)
-    _situations.load()
-    logger.info("RAG service initialized")
+    # Mirror orchestrator.warmup: a missing FAISS index must not silently
+    # disable the situations fast path; an embedder failure kills both
+    # (logged loudly) but keeps the process alive so /reload can retry.
+    try:
+        _embedder = SentenceTransformersEmbedder(
+            cfg.embed_model,
+            query_prompt=cfg.embed_query_prompt,
+            num_threads=cfg.embed_threads,
+        )
+        _retriever = Retriever(cfg, _embedder)
+        _retriever.load()
+        if _retriever.ready:
+            _retriever.warm_vectors()
+        _situations = SituationMatcher(cfg, _embedder)
+        _situations.load()
+        logger.info(
+            "RAG service initialized (index=%s, situations=%d rows)",
+            "loaded" if _retriever and _retriever.ready else "MISSING - run rag.ingest",
+            len(_situations.rows) if _situations else 0,
+        )
+    except Exception as exc:
+        logger.exception("RAG init failed")
+        _embedder = None
+        _retriever = None
+        _situations = None
 
 
 @app.on_event("startup")
 def startup():
-    _init_rag()
+    # Non-blocking: torch+embedder cold start can exceed a minute; uvicorn
+    # must serve /health ("loading") immediately, not after init.
+    init_in_background(_init_rag, "rag-init")
 
 
 @app.get("/health")
 def health():
+    index_ready = bool(_retriever is not None and _retriever.ready)
     return {
-        "status": "ok" if _retriever and _retriever.ready else "loading",
-        "index_chunks": _retriever.index.ntotal if _retriever and _retriever.ready else 0,
+        "status": "ok" if index_ready else ("loading" if _embedder else "error"),
+        "index_chunks": _retriever.index.ntotal if index_ready else 0,
         "situations_rows": len(_situations.rows) if _situations else 0,
     }
 
@@ -123,7 +161,10 @@ def retrieve(req: RetrieveRequest):
     if _retriever is None or not _retriever.ready:
         return RetrieveResponse(docs=[], query_used=req.query, elapsed_ms=0)
     q_vec = np.array(req.q_vec, dtype=np.float32) if req.q_vec else None
-    result = _retriever.retrieve(req.query, q_vec=q_vec, force=req.force)
+    memory = _MemoryShim(req.memory_ctx) if req.memory_ctx else None
+    result = _retriever.retrieve(
+        req.query, memory=memory, q_vec=q_vec, force=req.force
+    )
     docs = [
         RetrievedDoc(
             chunk_id=d.chunk_id, path=d.path, text=d.text, score=d.score
@@ -151,6 +192,14 @@ def situation(req: SituationRequest):
         answer=hit.answer,
         score=hit.score,
     )
+
+
+@app.get("/situations")
+def situations_rows():
+    """Full row list so the controller-side stand-in mirrors local parity."""
+    if _situations is None:
+        return {"rows": [], "enabled": False}
+    return {"rows": _situations.rows, "enabled": _situations.cfg.situations_enabled}
 
 
 @app.post("/reload")

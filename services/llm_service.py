@@ -11,27 +11,21 @@ Endpoints:
 
 from __future__ import annotations
 
-import logging
-import os
-import sys
+import json
 import time
 from typing import Iterator
 
-import httpx
 from fastapi import FastAPI
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from services.common import bootstrap, init_in_background
 
-from config import Config
-
-logger = logging.getLogger("llm_service")
-logging.basicConfig(level=logging.INFO)
+logger, cfg = bootstrap("llm_service")
 
 app = FastAPI(title="LLM Service")
-cfg = Config()
 _backend = None
+_init_error = ""
 
 
 class Message(BaseModel):
@@ -51,24 +45,36 @@ class GenerateResponse(BaseModel):
 
 
 def _init_backend():
-    global _backend
-    from llm import select_backend
+    global _backend, _init_error
+    _init_error = ""
+    try:
+        from llm import select_backend
 
-    _backend = select_backend(cfg)
-    logger.info("LLM backend initialized: %s", _backend.name)
+        _backend = select_backend(cfg)
+        logger.info("LLM backend initialized: %s", _backend.name)
+    except Exception as exc:
+        logger.error("LLM backend init failed: %s", exc)
+        _backend = None
+        _init_error = str(exc)
 
 
 @app.on_event("startup")
 def startup():
-    _init_backend()
+    init_in_background(_init_backend, "llm-init")
 
 
 @app.get("/health")
-def health():
+def health(deep: bool = False):
+    """Cheap readiness by default: startup's select_backend already did a
+    real generation probe, so polling here must not cost a Gemini call.
+    Pass ?deep=1 for a live end-to-end check."""
     if _backend is None:
-        return {"status": "loading"}
-    ok = _backend.health_check()
-    return {"status": "ok" if ok else "unhealthy", "backend": _backend.name}
+        return {"status": "error" if _init_error else "loading",
+                "detail": _init_error}
+    if deep:
+        ok = _backend.health_check()
+        return {"status": "ok" if ok else "unhealthy", "backend": _backend.name}
+    return {"status": "ok", "backend": _backend.name}
 
 
 @app.post("/complete", response_model=GenerateResponse)
@@ -90,11 +96,13 @@ def stream(req: GenerateRequest):
     messages = [m.model_dump() for m in req.messages]
 
     def generate() -> Iterator[str]:
+        # JSON-encode every event: raw token chunks may contain "\n" which
+        # would break SSE framing ("data: <chunk with \n>" splits wrongly).
         for chunk in _backend.stream(
             messages, temperature=req.temperature, max_tokens=req.max_tokens
         ):
-            yield f"data: {chunk}\n\n"
-        yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps({'t': chunk}, ensure_ascii=False)}\n\n"
+        yield 'data: {"done": true}\n\n'
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 

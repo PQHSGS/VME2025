@@ -38,7 +38,7 @@ def test_summary_apply_prunes_overflow():
     for i in range(4):
         m.add_user(f"câu {i}")
         m.add_bot_reply(f"đáp {i}")
-    overflow = m.overflow_exchanges(keep=1)
+    overflow = m.overflow_exchanges()
     assert len(overflow) == 3 and overflow[0].user == "câu 0"
     m.apply_summary("trẻ hỏi về đèn ông sao", summarized_up_to_turn=overflow[-1].turn)
     assert m.summary == "trẻ hỏi về đèn ông sao"

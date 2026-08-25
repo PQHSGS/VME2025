@@ -1,11 +1,15 @@
 """Microservice layer — each component runs as a separate FastAPI service.
 
-Services:
-  asr_service.py   (port 8001) — speech-to-text
-  llm_service.py   (port 8002) — Gemini LLM
-  rag_service.py   (port 8003) — FAISS retrieval + embedding
-  tts_service.py   (port 8004) — text-to-speech
+Layout:
+  asr_service.py   (port 8001) — gipformer speech-to-text
+  llm_service.py   (port 8002) — Gemini streaming/completion proxy
+  rag_service.py   (port 8003) — embedder + FAISS retrieval + situations
+  tts_service.py   (port 8004) — pure text->PCM synthesis (never plays)
+  clients.py       — protocol-matching remote stand-ins injected into the
+                     ConversationOrchestrator by run.py --microservice
+  manager.py       — process supervisor: spawn/adopt, crash-respawn,
+                     hot-reload watcher
 
-Manager orchestrates all services with health checks, timeout handling,
-and hot-reload (file watcher restarts changed services).
+The controller keeps mic capture, playback, session memory and telemetry;
+heavy model state lives in the services and survives controller restarts.
 """

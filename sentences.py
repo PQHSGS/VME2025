@@ -6,7 +6,7 @@ Handles Vietnamese text: basic punctuation, decimals, common abbreviations,
 and force-splits overly long runs so TTS chunks stay small and responsive.
 
 TTFA trick (first-chunk clause emission): Vietnamese replies typically open
-with a short discourse marker ("Vâng,", "Dạ, ông có thể..."). When enabled,
+with a short discourse marker ("Đúng,", "Dạ, ông có thể..."). When enabled,
 the very first chunk may be released at the first comma instead of waiting
 for terminal punctuation - VieNeu starts speaking ~a full clause earlier.
 Only applies once, before any real sentence has been emitted.

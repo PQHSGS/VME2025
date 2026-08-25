@@ -233,10 +233,6 @@ class MicRecorder:
         logger.info("captured %.2fs of speech", trimmed.shape[0] / SAMPLE_RATE)
         return trimmed
 
-    def stop_recording(self) -> None:
-        """Operator pressed the key again - finish immediately."""
-        self._stop_flag.set()
-
     def _concat_frames(self) -> np.ndarray:
         audio = self._buffer_snapshot()
         if audio is None:

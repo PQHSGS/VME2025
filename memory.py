@@ -132,10 +132,11 @@ class SessionMemory:
             self.turns_since_summary >= summarize_every_turns and len(self.recent) >= 2
         )
 
-    def overflow_exchanges(self, keep: int = 1) -> list[Exchange]:
-        """Exchanges old enough to be folded into the summary."""
+    def overflow_exchanges(self) -> list[Exchange]:
+        """Exchanges old enough to be folded into the summary (all but the
+        most recent one, which stays verbatim in the prompt window)."""
         with self._lock:
-            return list(self.recent)[: len(self.recent) - keep]
+            return list(self.recent)[: len(self.recent) - 1]
 
     def apply_summary(self, new_summary: str, summarized_up_to_turn: int) -> None:
         """Replace the rolling summary with the summarizer's consolidated text.
@@ -219,7 +220,7 @@ class MemoryManager:
         """
         if not memory.needs_summary(self.cfg.summarize_every_turns):
             return None
-        exchanges = memory.overflow_exchanges(keep=1)
+        exchanges = memory.overflow_exchanges()
         if not exchanges:
             return None
         transcript = "\n".join(

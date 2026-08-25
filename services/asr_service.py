@@ -1,6 +1,10 @@
-"""ASR microservice — gipformer-65M int8 via sherpa-onnx.
+"""ASR microservice — gipformer-65M int8 via sherpa-onnx (whisper legacy).
 
 Runs on port 8001. Accepts base64-encoded float32 audio, returns transcript.
+
+Startup never crashes the process: a missing model dir (e.g. models/
+gipformer-65M-i8 not yet copied onto this box) surfaces in /health as
+status="error" and POST /reload retries once the files appear.
 
 Endpoints:
   POST /transcribe  — audio bytes -> text
@@ -11,31 +15,26 @@ Endpoints:
 from __future__ import annotations
 
 import base64
-import io
-import logging
-import os
-import sys
+import threading
 import time
 
 import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-# Ensure project root is importable
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from services.common import bootstrap, init_in_background
+from config import SAMPLE_RATE
 
-from config import Config, GIPFORMER_DIR, SAMPLE_RATE
-
-logger = logging.getLogger("asr_service")
-logging.basicConfig(level=logging.INFO)
+logger, cfg = bootstrap("asr_service")
 
 app = FastAPI(title="ASR Service")
-cfg = Config()
 _stt = None
+_init_error = ""
+_load_lock = threading.Lock()
 
 
 class TranscribeRequest(BaseModel):
-    audio_b64: str  # base64-encoded float32 numpy array
+    audio_b64: str  # base64-encoded float32 mono samples
     sample_rate: int = SAMPLE_RATE
 
 
@@ -44,26 +43,41 @@ class TranscribeResponse(BaseModel):
     elapsed_ms: int
 
 
-def _load_model():
-    global _stt
-    from asr import GipformerSTT
+def _build_stt():
+    from asr import GipformerSTT, WhisperSTT
 
-    _stt = GipformerSTT(cfg)
-    _stt.load()
-    logger.info("ASR model loaded")
+    return GipformerSTT(cfg) if cfg.asr_backend == "gipformer" else WhisperSTT(cfg)
+
+
+def _load_model():
+    global _stt, _init_error
+    with _load_lock:
+        if _stt is not None and _stt.ready:
+            return True
+        try:
+            stt = _build_stt()
+            stt.load()  # raises on missing/broken model files
+            _stt, _init_error = stt, ""
+            logger.info("ASR model loaded (%s)", cfg.asr_backend)
+            return True
+        except Exception as exc:
+            logger.error("ASR load failed: %s", exc)
+            _stt, _init_error = None, str(exc)
+            return False
 
 
 @app.on_event("startup")
 def startup():
-    _load_model()
+    init_in_background(_load_model, "asr-load")
 
 
 @app.get("/health")
 def health():
-    return {
-        "status": "ok" if _stt and _stt.ready else "loading",
-        "backend": "gipformer-65M-i8",
-    }
+    if _stt is not None and _stt.ready:
+        return {"status": "ok", "backend": cfg.asr_backend}
+    if _init_error:
+        return {"status": "error", "detail": _init_error}
+    return {"status": "loading", "backend": cfg.asr_backend}
 
 
 @app.post("/transcribe", response_model=TranscribeResponse)
@@ -80,16 +94,22 @@ def transcribe(req: TranscribeRequest):
 
 @app.post("/reload")
 def reload_model():
-    """Hot-reload: re-instantiate the ASR model from potentially changed code."""
+    """Hot-reload current code + retry loading from disk."""
     global _stt
     try:
         import importlib
+
         import asr
 
-        importlib.reload(asr)
-        _stt = asr.GipformerSTT(cfg)
-        _stt.load()
-        return {"status": "reloaded", "backend": "gipformer-65M-i8"}
+        with _load_lock:
+            _stt = None
+            importlib.reload(asr)
+        ok = _load_model()
+        return {
+            "status": "reloaded" if ok else "error",
+            "detail": _init_error,
+            "backend": cfg.asr_backend,
+        }
     except Exception as exc:
         logger.exception("reload failed")
         return {"status": "error", "detail": str(exc)}
@@ -97,6 +117,7 @@ def reload_model():
 
 if __name__ == "__main__":
     import argparse
+
     import uvicorn
 
     parser = argparse.ArgumentParser()

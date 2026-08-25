@@ -109,6 +109,9 @@ class ConversationOrchestrator:
     def process_text(self, user_text: str) -> str:
         """Full think+speak cycle for one user utterance. Returns reply text."""
         assert self.memory_manager is not None
+        from asr_correct import correct_transcript
+
+        user_text = correct_transcript(user_text)
         idle_s = self.memory_manager.idle_seconds(self.session_id)
         if idle_s is not None and idle_s > self.cfg.session_idle_reset_min * 60:
             # Kiosk hygiene: a new visitor after an idle gap must not inherit
@@ -148,6 +151,12 @@ class ConversationOrchestrator:
                     self.answer_cache.store(user_text, reply, q_vec=q_vec)
                 self._queue_speech(reply)
             else:
+                # A guidance-only situation match steers the LLM answer.
+                guidance = (
+                    situation.guidance
+                    if (situation is not None and situation.guidance)
+                    else None
+                )
                 cached_reply = (
                     self.answer_cache.lookup(user_text, q_vec=q_vec)
                     if self.answer_cache
@@ -159,7 +168,11 @@ class ConversationOrchestrator:
                     self._queue_speech(reply)
                 else:
                     reply, path = self._generate_reply(
-                        user_text, memory, trace=trace, q_vec=q_vec
+                        user_text,
+                        memory,
+                        trace=trace,
+                        q_vec=q_vec,
+                        guidance=guidance,
                     )
         except Exception:
             logger.exception("turn failed")
@@ -207,7 +220,14 @@ class ConversationOrchestrator:
             early_first_clause=self.cfg.ttfa_first_clause,
         )
 
-    def _generate_reply(self, user_text: str, memory, trace=None, q_vec=None) -> tuple[str, str]:
+    def _generate_reply(
+        self,
+        user_text: str,
+        memory,
+        trace=None,
+        q_vec=None,
+        guidance: str | None = None,
+    ) -> tuple[str, str]:
         # Circuit breaker open: answer instantly instead of stalling every
         # visitor turn against a backend that just failed repeatedly.
         remaining = self._llm_cooldown_until - time.monotonic()
@@ -243,6 +263,7 @@ class ConversationOrchestrator:
             user_text,
             docs=docs,
             history_limit=self.cfg.recent_exchanges,
+            guidance=guidance,
         )
         logger.debug("prompt built: %s", meta)
         if trace is not None:

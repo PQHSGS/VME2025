@@ -13,5 +13,12 @@ __pycache__/
 # scripts/prep_asr_bench.py when needed
 data/asr_bench/
 
+# ASR weights (~70MB) - fetch via scripts/fetch_gipformer.py
+models/gipformer-65M-i8/
+
 # service subprocess logs
 logs/services/
+
+# local tooling
+.codegraph/
+opencode.jsonc

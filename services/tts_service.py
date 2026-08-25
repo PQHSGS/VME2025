@@ -1,48 +1,45 @@
-"""TTS microservice — VieNeu / edge-tts synthesis.
+"""TTS microservice — pure text->PCM synthesis, never touches a speaker.
 
-Runs on port 8004. Accepts text, returns audio bytes (PCM int16 or MP3).
+Runs on port 8004. The kiosk process keeps playback/barge-in/bookkeeping
+(TTSPlayer with its queue threads); this service only synthesizes and caches
+PCM so the heavy VieNeu weights survive controller restarts.
 
 Endpoints:
-  POST /synthesize  — text -> audio bytes
-  POST /prewarm     — batch-prewarm filler phrases
-  GET  /health      — engine ready check
-  POST /reload      — hot-reload: re-init TTS engine
+  POST /synthesize  — text -> base64 int16 PCM @ 24 kHz (cache-aware)
+  POST /prewarm     — batch-prewarm filler/fallback lines into the cache
+  GET  /health      — engine readiness (cheap; no synthesis)
+  POST /reload      — hot-reload: rebuild the synth chain from current code
 """
 
 from __future__ import annotations
 
 import base64
-import logging
-import os
-import sys
 import time
 
+import numpy as np
 from fastapi import FastAPI
 from pydantic import BaseModel
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
+from services.common import bootstrap, init_in_background
 
-from config import Config
-
-logger = logging.getLogger("tts_service")
-logging.basicConfig(level=logging.INFO)
+logger, cfg = bootstrap("tts_service")
 
 app = FastAPI(title="TTS Service")
-cfg = Config()
 _player = None
+_init_error = ""
 
 
 class SynthesizeRequest(BaseModel):
     text: str
-    tag: str = "reply"
 
 
 class SynthesizeResponse(BaseModel):
-    audio_b64: str | None = None  # base64-encoded int16 PCM
+    audio_b64: str | None = None  # base64 int16 mono PCM @ sample_rate
     sample_rate: int = 0
     engine: str = ""
     elapsed_ms: int = 0
     cached: bool = False
+    error: str = ""
 
 
 class PrewarmRequest(BaseModel):
@@ -50,22 +47,50 @@ class PrewarmRequest(BaseModel):
 
 
 def _init_tts():
-    global _player
+    global _player, _init_error
+    _init_error = ""
     from tts import build_tts_player
 
-    _player = build_tts_player(cfg, probe=False)
-    logger.info("TTS service initialized: %s", getattr(_player, "engine_name", "unknown"))
+    try:
+        # probe=False: keep startup cheap; a broken engine surfaces on the
+        # first /synthesize as an error field instead of killing the service.
+        _player = build_tts_player(cfg, probe=False)
+        logger.info(
+            "TTS service initialized: %s", getattr(_player, "engine_name", "unknown")
+        )
+    except Exception as exc:
+        logger.exception("TTS init failed")
+        _player = None
+        _init_error = str(exc)
 
 
 @app.on_event("startup")
 def startup():
     _init_tts()
 
+    def warm():
+        if _player is None or _player.disabled:
+            return
+        try:
+            # Warm VieNeu weights so the first real synthesis doesn't pay a
+            # multi-minute cold load mid-show.
+            _player._synthesize("Xin chào các em nhỏ!")
+            logger.info("TTS engine warmed")
+        except Exception as exc:
+            logger.warning("TTS warmup failed (engine falls back per-call): %s", exc)
+
+    init_in_background(warm, "tts-warm")
+
+
+def _cache_key(text: str) -> str:
+    return f"{_player._cache_ns}|{text.strip()}"
+
 
 @app.get("/health")
 def health():
     if _player is None:
-        return {"status": "loading"}
+        return {"status": "error" if _init_error else "loading",
+                "detail": _init_error}
     return {
         "status": "ok" if not _player.disabled else "disabled",
         "engine": getattr(_player, "engine_name", "unknown"),
@@ -74,52 +99,36 @@ def health():
 
 @app.post("/synthesize", response_model=SynthesizeResponse)
 def synthesize(req: SynthesizeRequest):
-    if _player is None or _player.disabled:
-        return SynthesizeResponse()
+    """Pure synthesis via TTSPlayer._synthesize: cache -> synth -> resample
+    to 24 kHz -> LRU store. Never queues playback."""
+    if _player is None:
+        return SynthesizeResponse(error=_init_error or "player not ready")
+    if _player.disabled:
+        return SynthesizeResponse(error="tts disabled")
     started = time.perf_counter()
-    # Check cache first
-    cached = None
-    if hasattr(_player, "_cache"):
-        cached = _player._cache.get(req.text)
-    if cached is not None:
-        return SynthesizeResponse(
-            audio_b64=base64.b64encode(cached).decode(),
-            sample_rate=24000,
-            engine=getattr(_player, "engine_name", ""),
-            elapsed_ms=int((time.perf_counter() - started) * 1000),
-            cached=True,
-        )
-    # Synthesize
+    key = _cache_key(req.text)
+    cached = key in _player._cache
     try:
-        if hasattr(_player, "_synth_pcm") and _player._synth_pcm is not None:
-            pcm, rate = _player._synth_pcm(req.text)
-            audio_bytes = pcm.tobytes()
-        else:
-            # Fallback: submit to queue and wait (edge-tts path)
-            _player.submit(req.text, tag=req.tag)
-            return SynthesizeResponse(
-                engine=getattr(_player, "engine_name", ""),
-                elapsed_ms=int((time.perf_counter() - started) * 1000),
-            )
-        return SynthesizeResponse(
-            audio_b64=base64.b64encode(audio_bytes).decode(),
-            sample_rate=rate,
-            engine=getattr(_player, "engine_name", ""),
-            elapsed_ms=int((time.perf_counter() - started) * 1000),
-        )
+        # Runs in FastAPI's threadpool; blocks this one request only.
+        pcm, rate = _player._synthesize(req.text)
     except Exception as exc:
-        logger.exception("synthesis failed")
-        return SynthesizeResponse()
+        logger.warning("synthesis failed for %r: %s", req.text[:40], exc)
+        return SynthesizeResponse(error=str(exc))
+    return SynthesizeResponse(
+        audio_b64=base64.b64encode(np.ascontiguousarray(pcm).tobytes()).decode(),
+        sample_rate=rate,
+        engine=getattr(_player, "engine_name", ""),
+        elapsed_ms=int((time.perf_counter() - started) * 1000),
+        cached=cached,
+    )
 
 
 @app.post("/prewarm")
 def prewarm(req: PrewarmRequest):
     if _player is None or _player.disabled:
         return {"status": "disabled"}
-    prewarm_fn = getattr(_player, "prewarm", None)
-    if callable(prewarm_fn):
-        prewarm_fn(req.phrases)
-    return {"status": "ok", "warmed": len(req.phrases)}
+    warmed = _player.prewarm(req.phrases)
+    return {"status": "ok", "warmed": warmed}
 
 
 @app.post("/reload")
@@ -127,11 +136,15 @@ def reload_model():
     global _player
     try:
         import importlib
+
         import tts
 
         importlib.reload(tts)
         _player = tts.build_tts_player(cfg, probe=False)
-        return {"status": "reloaded", "engine": getattr(_player, "engine_name", "unknown")}
+        return {
+            "status": "reloaded",
+            "engine": getattr(_player, "engine_name", "unknown"),
+        }
     except Exception as exc:
         logger.exception("reload failed")
         return {"status": "error", "detail": str(exc)}
@@ -139,6 +152,7 @@ def reload_model():
 
 if __name__ == "__main__":
     import argparse
+
     import uvicorn
 
     parser = argparse.ArgumentParser()

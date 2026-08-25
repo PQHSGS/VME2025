@@ -49,8 +49,12 @@ def format_retrieved_block(docs: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-def build_context_block(memory, docs: list[dict] | None) -> str | None:
-    """Assemble the non-verbatim layers: summary + facts + retrieved docs."""
+def build_context_block(
+    memory,
+    docs: list[dict] | None,
+    guidance: str | None = None,
+) -> str | None:
+    """Assemble the non-verbatim layers: summary + facts + docs + guidance."""
     sections: list[str] = []
     if memory.summary:
         sections.append(f"### TÓM TẮT CÁC PHẦN TRƯỚC\n{memory.summary.strip()}")
@@ -62,6 +66,10 @@ def build_context_block(memory, docs: list[dict] | None) -> str | None:
             "### TÀI LIỆU THAM KHẢO (dùng nếu phù hợp, KHÔNG bịa ngoài tài liệu)\n"
             + format_retrieved_block(docs)
         )
+    # Operator-scripted steering from a situations.csv row that had no
+    # canned answer - advice on HOW to answer, not what to say verbatim.
+    if guidance:
+        sections.append(f"### GỢI Ý TRẢ LỜI (từ ban tổ chức)\n{guidance.strip()}")
     if not sections:
         return None
     return "\n\n".join(sections)
@@ -73,11 +81,12 @@ def build_messages(
     user_text: str,
     docs: list[dict] | None = None,
     history_limit: int | None = None,
+    guidance: str | None = None,
 ) -> tuple[list[dict], dict]:
     """Returns (messages, meta). messages use OpenAI-style role/content dicts."""
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
-    context_block = build_context_block(memory, docs)
+    context_block = build_context_block(memory, docs, guidance)
     recent = list(memory.recent)[-(history_limit or len(memory.recent)) :]
 
     turn_lines: list[str] = []
