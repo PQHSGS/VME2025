@@ -290,7 +290,7 @@ def main(argv: list[str] | None = None) -> int:
                 if not text:
                     continue
                 reply = orch.process_text(text)
-                print(f"Ã´ng giáº¥y: {reply}\n")
+                print(f"Ã´ng giấy: {reply}\n")
             orch.join_background_work(timeout=3.0)
             if orch.tts:
                 orch.tts.close()
