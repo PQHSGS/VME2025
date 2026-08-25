@@ -150,13 +150,13 @@ class RemoteRetriever:
     def warm_vectors(self):
         return None  # server warms its own MMR cache at startup
 
-    def retrieve(self, query, memory=None, exclude_ids=None, force=False, q_vec=None):
+    def retrieve(self, query, memory=None, exclude_ids=None, q_vec=None):
         from rag.retriever import RetrievalResult
 
         if not self.ready:
             logger.debug("rag service not ready - empty retrieval")
             return RetrievalResult(query_used=query)
-        payload: dict = {"query": query, "force": force}
+        payload: dict = {"query": query}
         if q_vec is not None:
             payload["q_vec"] = np.asarray(q_vec, dtype=np.float32).tolist()
         if memory is not None:

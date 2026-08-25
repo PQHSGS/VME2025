@@ -192,8 +192,11 @@ class Config:
     embed_threads: int = _env_int("EMBED_THREADS", 4)
     # [TUNE] retrieved-text char budget; watch prompt_chars in traces.
     context_char_budget: int = _env_int("CONTEXT_CHAR_BUDGET", 1400)
-    # [TUNE] centroid similarity gate; below this, skip retrieval (small talk).
-    gate_threshold: float = _env_float("GATE_THRESHOLD", 0.40)
+    # [TUNE] evidence bar: docs enter the prompt only when the best raw
+    # cosine between the turn and the KB clears this. Below it Ông answers
+    # from conversation alone. Asymmetric rule: prefer LOW over high -
+    # missing real docs hurts more than an occasionally included block.
+    evidence_sim_min: float = _env_float("EVIDENCE_SIM_MIN", 0.55)
     # [TUNE] retriever tuning — only change if bench_rag shows poor recall.
     retriever_topk_candidates: int = _env_int("RETRIEVER_TOPK_CANDIDATES", 8)
     retriever_final_docs: int = _env_int("RETRIEVER_FINAL_DOCS", 4)
@@ -202,35 +205,6 @@ class Config:
     # [TUNE] per recently-shown chunk penalty to avoid repeating same docs.
     dedup_penalty: float = _env_float("DEDUP_PENALTY", 0.05)
     dedup_window_turns: int = _env_int("DEDUP_WINDOW_TURNS", 3)
-    # Domain vocabulary: any of these forces retrieval regardless of gate.
-    domain_keywords: list[str] = field(
-        default_factory=lambda: [
-            "trung thu",
-            "bảo tàng",
-            "dân tộc học",
-            "tiến sĩ giấy",
-            "tiến sỹ giấy",
-            "chú cuội",
-            "chị hằng",
-            "thỏ ngọc",
-            "đèn ông sao",
-            "đèn kéo quân",
-            "múa lân",
-            "lân sư",
-            "sư rông",
-            "rối nước",
-            "bánh nướng",
-            "bánh dẻo",
-            "mâm ngũ quả",
-            "tò he",
-            "phỗng đất",
-            "cánh diều",
-            "trống đồng",
-            "ô ăn quan",
-            "cà kheo",
-            "hàng quán",
-        ]
-    )
 
     # ==================================================================
     # Situations — scripted fast-path (data/situations.csv)

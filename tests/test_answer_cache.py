@@ -125,3 +125,29 @@ def test_clause_window_bounded():
     long_opening = "x" * 90 + ", rồi mới có dấu phẩy sau đó"
     out = sp.push(long_opening)
     assert out == []  # comma outside the 80-char window -> no early emit
+
+
+def test_chunk_ids_roundtrip_for_dedup_remark():
+    import numpy as np
+
+    class Emb:
+        def encode_query(self, text):
+            v = np.ones(8, dtype=np.float32)
+            return v / np.linalg.norm(v)
+
+    cfg = types.SimpleNamespace(
+        answer_cache_enabled=True,
+        answer_cache_similarity=0.9,
+        answer_cache_max_entries=10,
+        answer_cache_ttl_min=60,
+        answer_cache_min_reply_chars=5,
+    )
+    cache = AnswerCache(cfg, Emb())
+    cache.store(
+        chr(273) + 'en ' + chr(244) + 'ng sao l' + chr(224) + 'm b' + chr(7857) + 'ng g' + chr(236) + '?',
+        'B' + chr(7857) + 'ng tre v' + chr(224) + ' gi' + chr(7855) + 'y, nh' + chr(7865) + ' m' + chr(224) + ' p' + chr(7867) + 'p.',
+        chunk_ids=['c1', 'c2'],
+    )
+    hit = cache.lookup(chr(273) + 'EN ONG SAO LAM BANG GI')
+    assert hit
+    assert cache.last_hit_chunk_ids == ['c1', 'c2']

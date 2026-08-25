@@ -24,7 +24,7 @@ DOCS = [
 def test_context_block_layers():
     block = build_context_block(FakeMemory(), DOCS)
     assert "TÓM TẮT" in block and "THÔNG TIN ĐÃ BIẾT" in block
-    assert "TÀI LIỆU THAM KHẢO" in block and "[1]" in block
+    assert "TÀI LIỆU NỀN THAM KHẢO" in block and "[1]" in block
     assert "Đèn ông sao làm bằng giấy tre." in block
 
 
@@ -37,19 +37,22 @@ def test_context_block_empty_when_nothing():
     assert build_context_block(Empty(), None) is None
 
 
-def test_build_messages_shape_and_history_limit():
+def test_build_messages_native_history_and_final_payload():
     messages, meta = build_messages(
         "SYSTEM", FakeMemory(), "đèn kéo quân là gì?", docs=DOCS, history_limit=1
     )
     roles = [m["role"] for m in messages]
-    assert roles == ["system", "user", "assistant"]
-    body = messages[1]["content"]
-    # history limited to the LAST exchange: older one dropped, newer kept
-    assert "Múa lân là..." not in body and "múa lân là gì" not in body
-    assert "ai múa" in body and "Các nghệ nhân..." in body
-    assert "HỘI THOẠI GẦN ĐÂY" in body and "CÂU HỎI HIỆN TẠI" in body
-    assert "Đèn ông sao làm bằng giấy tre." in body
-    # pre-ack keeps model in role; system prompt verbatim
-    assert messages[2]["content"].startswith("Ông nghe rồi")
+    # system + native alternating history (last exchange only) + final payload
+    assert roles == ["system", "user", "assistant", "user"]
+    history_user, history_bot = messages[1]["content"], messages[2]["content"]
+    # older overflow exchange dropped by history_limit
+    assert "Múa lân là..." not in str(messages) and "múa lân là gì" not in str(messages)
+    assert history_user == "ai múa"
+    assert history_bot == "Các nghệ nhân..."
+    final = messages[3]["content"]
+    # disposable context rides ONLY in the final turn
+    assert "TÓM TẮT" in final and "TÀI LIỆU NỀN THAM KHẢO" in final
+    assert "[1]" in final and "CÂU HỎI HIỆN TẠI" in final
+    assert "Đèn ông sao làm bằng giấy tre." in final
     assert messages[0]["content"] == "SYSTEM"
     assert meta["docs"] == 1 and meta["recent_turns"] == 1

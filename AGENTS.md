@@ -154,7 +154,7 @@ read `logs/traces.jsonl`.
 | Knob | Watch | Adjust when |
 |---|---|---|
 | `SMART_TURN_THRESHOLD/CHECK_MS` | end-of-turn log lines (`p=…`) | turns cut mid-question → raise threshold; dead air → lower check_ms |
-| `GATE_THRESHOLD` | share of turns with `docs>0` vs small talk hitting LLM | too much junk retrieval → raise; real questions answered without docs → lower |
+| `EVIDENCE_SIM_MIN` | `best_sim` in traces vs turns with `docs>0` | junk docs leaking into chat answers → raise; real questions answered without docs → lower (prefer low) |
 | `ANSWER_CACHE_SIMILARITY` | cache-hit rate + wrong-answer complaints | wrong replayed answers → raise toward 0.95; few hits → try 0.90 |
 | `CONTEXT_CHAR_BUDGET` / `RECENT_EXCHANGES` | `prompt_chars` field in traces vs `llm_ttft` | TTFT creeping up → trim budget; answers missing context → grow |
 | `SITUATIONS_THRESHOLD` | situation hits logged at match time | misses on obvious scripted Qs → lower |

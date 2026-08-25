@@ -76,6 +76,11 @@ class AnswerCache:
         self.embedder = embedder
         self._entries: OrderedDict[str, dict] = OrderedDict()  # norm query -> entry
         self._lock = threading.Lock()
+        # Chunk ids behind the most recent successful lookup; the
+        # orchestrator re-marks these as shown so replayed answers still
+        # feed the dedup window (otherwise a cached story can repeat).
+        self.last_hit_chunk_ids: list[str] = []
+        self._lock = threading.Lock()
 
     @property
     def enabled(self) -> bool:
@@ -94,6 +99,7 @@ class AnswerCache:
             exact = self._entries.get(key)
             if exact:
                 self._entries.move_to_end(key)
+                self.last_hit_chunk_ids = list(exact.get("chunk_ids", []))
                 logger.info("answer-cache EXACT hit: %r", query[:60])
                 return random.choice(exact["replies"])
 
@@ -109,6 +115,7 @@ class AnswerCache:
             if best_sim >= threshold:
                 self._entries.move_to_end(best_key)
                 entry = self._entries[best_key]
+                self.last_hit_chunk_ids = list(entry.get("chunk_ids", []))
                 logger.info(
                     "answer-cache SEMANTIC hit (%.3f): %r ~ %r",
                     best_sim,
@@ -118,7 +125,13 @@ class AnswerCache:
                 return random.choice(entry["replies"])
         return None
 
-    def store(self, query: str, reply: str, q_vec: np.ndarray | None = None) -> None:
+    def store(
+        self,
+        query: str,
+        reply: str,
+        q_vec: np.ndarray | None = None,
+        chunk_ids: list[str] | None = None,
+    ) -> None:
         """Add this reply as one phrasing variant for the question.
 
         Distinct texts accumulate (capped) so repeated visitors hear
@@ -140,9 +153,12 @@ class AnswerCache:
                     "query": query,
                     "replies": [],
                     "vec": vec,
+                    "chunk_ids": list(chunk_ids or []),
                     "expires": time.monotonic() + ttl_s,
                 }
                 self._entries[key] = entry
+            if chunk_ids and not entry["chunk_ids"]:
+                entry["chunk_ids"] = list(chunk_ids)
             if reply not in entry["replies"]:
                 entry["replies"].append(reply)
                 while len(entry["replies"]) > _MAX_VARIANTS:

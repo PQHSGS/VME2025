@@ -2,17 +2,19 @@
 
 Layout sent to the LLM each turn:
 
-    [system]  persona + rules + how to treat context blocks
-    [user]    === BỐI CẢNH ===            (only when there is any)
-                 TÓM TẮT: rolling summary
-                 THÔNG TIN ĐÃ BIẾT: facts
-              === TÀI LIỆU THAM KHẢO ===  (only when retrieval fired)
-                 numbered chunks with breadcrumb paths
-              === HỘI THOẠI GẦN ĐÂY ===   verbatim recent turns
-              === CÂU HỎI HIỆN TẠI ===    raw user message
+    [system]    persona + rules + how to treat context blocks
+    [user]*     native history turns (verbatim, alternating roles)
+    [user]      === BỐI CẢNH ===            (only when there is any)
+                   TÓM TẮT: rolling summary
+                   THÔNG TIN ĐÃ BIẾT: facts
+                === TÀI LIỆU THAM KHẢO ===  (only when retrieval fired)
+                   numbered chunks with breadcrumb paths
+                === GỢI Ý TRẢ LỜI ===       (operator steering, optional)
+                === CÂU HỎI HIỆN TẠI ===    raw user message
 
-Keeping retrieved docs inside a *labeled user-turn block* (not stored into
-history) means the next turn starts clean - no compounding pollution.
+History as REAL role turns lets the provider enforce continuity; everything
+disposable (docs/summary/facts) rides only in the final turn so it never
+compounds into memory.
 """
 
 from __future__ import annotations
@@ -63,7 +65,8 @@ def build_context_block(
         sections.append(f"### THÔNG TIN ĐÃ BIẾT VỀ EM NHÍ\n{facts}")
     if docs:
         sections.append(
-            "### TÀI LIỆU THAM KHẢO (dùng nếu phù hợp, KHÔNG bịa ngoài tài liệu)\n"
+            "### TÀI LIỆU NỀN THAM KHẢO (chỉ dùng khi em nhí hỏi để tìm hiểu"
+            " sâu hơn; đang trò chuyện thường thì bỏ qua)\n"
             + format_retrieved_block(docs)
         )
     # Operator-scripted steering from a situations.csv row that had no
@@ -83,39 +86,35 @@ def build_messages(
     history_limit: int | None = None,
     guidance: str | None = None,
 ) -> tuple[list[dict], dict]:
-    """Returns (messages, meta). messages use OpenAI-style role/content dicts."""
+    """[system] + NATIVE alternating history turns + [final structured payload].
+
+    History rides as real user/assistant turns so provider APIs enforce role
+    continuity structurally - the model cannot treat a mid-conversation turn
+    as a fresh Q&A (this killed the re-greeting/tone-drift class of bugs).
+    Summary/facts/docs/guidance stay in the FINAL turn only: disposable
+    per-turn context that never compounds into history.
+    """
     messages: list[dict] = [{"role": "system", "content": system_prompt}]
 
-    context_block = build_context_block(memory, docs, guidance)
     recent = list(memory.recent)[-(history_limit or len(memory.recent)) :]
-
-    turn_lines: list[str] = []
     for exchange in recent:
         if exchange.user:
-            turn_lines.append(f"Em nhí: {exchange.user}")
+            messages.append({"role": "user", "content": exchange.user})
         if exchange.bot:
-            turn_lines.append(f"Ông Tiến sĩ Giấy: {exchange.bot}")
+            messages.append({"role": "assistant", "content": exchange.bot})
 
+    context_block = build_context_block(memory, docs, guidance)
     current_parts: list[str] = []
     if context_block:
         current_parts.append(context_block)
-    if turn_lines:
-        current_parts.append("### HỘI THOẠI GẦN ĐÂY\n" + "\n".join(turn_lines))
     current_parts.append(f"### CÂU HỎI HIỆN TẠI CỦA EM NHÍ\n{user_text}")
-    # The whole structured payload rides in one user turn; only the final
-    # question is 'new', everything above is disposable per-turn context.
     messages.append({"role": "user", "content": "\n\n---\n\n".join(current_parts)})
-    # Pre-acknowledgement keeps chat models in role without polluting history.
-    messages.append(
-        {"role": "assistant", "content": "Ông nghe rồi, để ông trả lời cháu nhé."}
-    )
 
     meta = {
         "context_chars": len(context_block or ""),
         "recent_turns": len(recent),
         "docs": len(docs or []),
         # Total characters shipped to the LLM - the input-side TTFT lever.
-        # Watch this when tuning CONTEXT_CHAR_BUDGET / RECENT_EXCHANGES.
         "prompt_chars": len(system_prompt)
         + sum(len(str(m.get("content", ""))) for m in messages[1:]),
     }

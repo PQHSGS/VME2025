@@ -40,9 +40,8 @@ class EmbedResponse(BaseModel):
 class MemoryCtx(BaseModel):
     """Lightweight stand-in for the controller's SessionMemory.
 
-    Carries exactly the three things Retriever.retrieve() reads off memory:
-    follow-up enrichment (topics + shape hint) and the seen-chunk dedup
-    window. Keeps parity with monolith behavior across the HTTP boundary.
+    Carries exactly what Retriever.retrieve() reads off memory: follow-up
+    enrichment (topics + shape hint) and the seen-chunk dedup window.
     """
 
     topics: str = ""
@@ -53,7 +52,6 @@ class MemoryCtx(BaseModel):
 class RetrieveRequest(BaseModel):
     query: str
     q_vec: list[float] | None = None
-    force: bool = False
     memory_ctx: MemoryCtx | None = None
 
 
@@ -163,7 +161,7 @@ def retrieve(req: RetrieveRequest):
     q_vec = np.array(req.q_vec, dtype=np.float32) if req.q_vec else None
     memory = _MemoryShim(req.memory_ctx) if req.memory_ctx else None
     result = _retriever.retrieve(
-        req.query, memory=memory, q_vec=q_vec, force=req.force
+        req.query, memory=memory, q_vec=q_vec
     )
     docs = [
         RetrievedDoc(

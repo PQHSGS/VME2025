@@ -68,12 +68,12 @@ def main() -> int:
     # Warm-up: model load, first-touch MMR chunk encodes, torch threads -
     # none of these are steady-state per-turn costs.
     retriever.warm_vectors().join()
-    retriever.retrieve(queries[0][0], force=True)
+    retriever.retrieve(queries[0][0])
     hits_at_k, rr_total, slow = 0, 0.0, []
     print(f"{'query':<44} {'hit@%d' % k}  rr     ms")
     for query, expected in queries:
         started = time.perf_counter()
-        result = retriever.retrieve(query, force=True)
+        result = retriever.retrieve(query)
         elapsed_ms = (time.perf_counter() - started) * 1000
         slow.append(elapsed_ms)
         texts = " ".join(d.text.lower() for d in result.docs)

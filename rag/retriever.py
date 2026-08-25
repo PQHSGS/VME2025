@@ -1,12 +1,16 @@
-"""Retriever: cheap gate -> FAISS search -> MMR -> char budget.
+"""Retriever: FAISS search -> evidence bar -> MMR -> char budget.
 
 Per turn:
-  1. ``should_retrieve`` decides *whether* to pay for retrieval at all
-     (keyword hits or centroid similarity) - most small talk skips it.
-  2. Short conversational follow-ups are enriched with recent user topics
-     before embedding ("nó ở đâu vậy?" keeps working).
-  3. Candidates are re-ranked with MMR for diversity and trimmed to a hard
-     character budget so the prompt never balloons.
+  1. Always search the index (embedder is already paid for the turn).
+  2. EVIDENCE BAR: docs are included only when the best raw cosine between
+     the query and the KB clears ``evidence_sim_min``. Below the bar there
+     is no docs block at all - the LLM continues from native history alone.
+     This replaces intent-guessing heuristics: we measure whether knowledge
+     exists instead of predicting utterance type.
+  3. Short conversational follow-ups are enriched with recent topics before
+     embedding ("nó ở đâu vậy?" keeps working).
+  4. Candidates are re-ranked with MMR and trimmed to a char budget so the
+     prompt never balloons.
 """
 
 from __future__ import annotations
@@ -40,6 +44,9 @@ class RetrievalResult:
     # raw query when the question was self-contained - consumers use that to
     # decide whether a turn may enter the answer cache.
     query_used: str = ""
+    # Best raw cosine against the KB for this turn, regardless of whether
+    # docs were included. Traces use it to tune EVIDENCE_SIM_MIN.
+    best_sim: float = 0.0
     elapsed_s: float = 0.0
 
 
@@ -49,8 +56,7 @@ class Retriever:
         self.embedder = embedder
         self.index = None
         self.docs_meta: list[dict] = []
-        self.centroids: np.ndarray | None = None
-        # LRU of query vectors (masks the gate -> retrieve double encode).
+        # LRU of query vectors (dedupes repeated encodes within a process).
         self._embed_cache: OrderedDict[str, np.ndarray] = OrderedDict()
         # KB chunk vectors are static; encode each chunk once, ever.
         self._mmr_vec_cache: dict[str, np.ndarray] = {}
@@ -64,8 +70,6 @@ class Retriever:
             self.index = faiss.read_index(str(index_dir / "index.faiss"))
             payload = json.loads((index_dir / "meta.json").read_text(encoding="utf-8"))
             self.docs_meta = payload["docs"]
-            centroid_path = index_dir / "centroids.npy"
-            self.centroids = np.load(centroid_path) if centroid_path.exists() else None
             logger.info(
                 "retriever loaded %d chunks from %s", len(self.docs_meta), index_dir
             )
@@ -116,34 +120,23 @@ class Retriever:
         return vec
 
     # ------------------------------------------------------------------
-    def should_retrieve(self, query: str, memory=None) -> bool:
-        q = query.strip().lower()
-        if not q:
-            return False
-        if any(keyword in q for keyword in self.cfg.domain_keywords):
-            return True
-        if self.centroids is not None and len(q.split()) >= 3:
-            vec = self._embed_query(query)
-            sims = self.centroids @ vec
-            if float(sims.max()) >= self.cfg.gate_threshold:
-                return True
-        return False
+    def _embed_query(self, text: str) -> np.ndarray:
+        cached = self._embed_cache.get(text)
+        if cached is not None:
+            self._embed_cache.move_to_end(text)
+            return cached
+        vec = self.embedder.encode_query(text)
+        if len(self._embed_cache) >= self._EMBED_CACHE_MAX:
+            self._popitem_oldest()
+        self._embed_cache[text] = vec
+        return vec
 
-    def _should_retrieve_vec(self, query: str, q_vec: np.ndarray, memory=None) -> bool:
-        """Gate check using a pre-computed query vector (avoids re-encoding)."""
-        q = query.strip().lower()
-        if not q:
-            return False
-        if any(keyword in q for keyword in self.cfg.domain_keywords):
-            return True
-        if self.centroids is not None and len(q.split()) >= 3:
-            sims = self.centroids @ q_vec
-            if float(sims.max()) >= self.cfg.gate_threshold:
-                return True
-        return False
+    def _popitem_oldest(self):
+        self._embed_cache.popitem(last=False)
 
+    # ------------------------------------------------------------------
     def _effective_query(self, query: str, memory=None) -> str:
-        """Enrich very short follow-ups with recent topics."""
+        """Enrich very short pronoun follow-ups with recent topics."""
         words = query.strip().split()
         if memory is not None and len(words) <= 5 and memory.looks_like_followup(query):
             topics = memory.last_topics()
@@ -159,9 +152,16 @@ class Retriever:
         query: str,
         memory=None,
         exclude_ids: set[str] | None = None,
-        force: bool = False,
         q_vec: np.ndarray | None = None,
     ) -> RetrievalResult:
+        """Always search; include docs only when EVIDENCE supports it.
+
+        Replaces the old keyword/centroid gate: instead of predicting
+        utterance type from surface forms, we measure whether the KB
+        actually contains something similar to what was said. Below the
+        bar -> no docs block -> the LLM continues the conversation from
+        native history alone.
+        """
         started = time.perf_counter()
         result = RetrievalResult(query_used=query)
 
@@ -169,20 +169,25 @@ class Retriever:
             logger.warning("retriever called before index load")
             return result
 
-        # Enrich follow-ups first, then embed once for gate + FAISS.
         effective_query = self._effective_query(query, memory)
-        if q_vec is None:
+        if q_vec is None or effective_query != query:
             q_vec = self._embed_query(effective_query)
-        elif effective_query != query:
-            # Follow-up enriched the text; encode the enriched version.
-            q_vec = self._embed_query(effective_query)
-
-        if not force and not self._should_retrieve_vec(query, q_vec, memory):
-            result.elapsed_s = time.perf_counter() - started
-            return result
 
         k = min(self.cfg.retriever_topk_candidates, self.index.ntotal)  # type: ignore[union-attr]
         scores, ids = self.index.search(q_vec[None, :].astype(np.float32), k)  # type: ignore[union-attr]
+
+        raw_scores = [float(s) for s, i in zip(scores[0], ids[0], strict=False) if i >= 0]
+        best_sim = max(raw_scores) if raw_scores else 0.0
+        result.best_sim = best_sim
+        if best_sim < self.cfg.evidence_sim_min:
+            logger.info(
+                "evidence %.3f < %.2f - no docs (%s)",
+                best_sim,
+                self.cfg.evidence_sim_min,
+                effective_query[:50],
+            )
+            result.elapsed_s = time.perf_counter() - started
+            return result
         candidates: list[tuple[dict, float]] = []
         seen_turn_window = set()
         if memory is not None:

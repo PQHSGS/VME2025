@@ -5,7 +5,7 @@ Museum of Ethnology. Vietnamese-only. Cascaded streaming pipeline:
 
 ```
 mic → push-to-talk capture (smart-turn / manual / hold) → gipformer-65M ASR (int8)
-    → homophone post-filter → situation fast-path → gate → FAISS retrieval
+    → homophone post-filter → situation fast-path → FAISS retrieval + evidence bar
     → layered context → Gemini LLM stream → sentence splitter
     → VieNeu-TTS v3 Turbo (local) / edge-tts fallback → speaker
                                          (barge-in anywhere)

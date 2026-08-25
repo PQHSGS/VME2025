@@ -5,8 +5,7 @@ from rag.retriever import Retriever
 
 
 class MiniCfg:
-    domain_keywords = ["trung thu", "đèn ông sao"]
-    gate_threshold = 0.40
+    evidence_sim_min = 0.45
     retriever_topk_candidates = 4
     retriever_final_docs = 2
     retriever_min_score = 0.05
@@ -39,7 +38,6 @@ def build_retriever(texts, cfg=None):
         {"chunk_id": str(i), "path": f"P{i}", "title": f"T{i}", "text": t}
         for i, t in enumerate(texts)
     ]
-    r.centroids = None
     return r, emb
 
 
@@ -50,15 +48,20 @@ DOCS = [
 ]
 
 
-def test_keyword_gate_hits():
+def test_evidence_bar_separates_docs_from_chitchat():
+    """The core contract: KB-similar turns get docs, social noise does not."""
     r, _ = build_retriever(DOCS)
-    assert r.should_retrieve("đèn ông sao làm từ gì vậy")
-    assert not r.should_retrieve("chào ông")
+    res = r.retrieve("đèn ông sao làm bằng gì")
+    assert res.docs and res.best_sim >= MiniCfg.evidence_sim_min
+
+    chitchat = r.retrieve("chào ông ạ")
+    assert chitchat.docs == []
+    assert chitchat.best_sim < MiniCfg.evidence_sim_min
 
 
 def test_retrieve_ranks_by_similarity():
     r, _ = build_retriever(DOCS)
-    res = r.retrieve("đèn ông sao năm cánh sao", force=True)
+    res = r.retrieve("đèn ông sao năm cánh sao")
     assert res.docs and res.docs[0].text.startswith("Đèn ông sao")
 
 
@@ -74,7 +77,13 @@ def test_dedup_penalty_demotes_recent_chunk():
         def recently_seen_chunk_ids(self, w):
             return {"0"}
 
-    res = r.retrieve("đèn ông sao năm cánh sao", force=True, memory=Mem())
+        def looks_like_followup(self, q):
+            return False
+
+        def last_topics(self, n=2):
+            return ""
+
+    res = r.retrieve("đèn ông sao năm cánh sao", memory=Mem())
     top = [d.chunk_id for d in res.docs]
     assert top and "0" not in top[:1], "recently shown chunk should be demoted"
 
@@ -85,19 +94,19 @@ def test_char_budget_trims_docs():
 
     long_docs = ["câu rất dài " * 20 for _ in range(3)]
     r, _ = build_retriever(long_docs, TinyCfg())
-    res = r.retrieve("câu rất dài", force=True)
+    res = r.retrieve("câu rất dài")
     assert len(res.docs) == 1  # trimmed to the single best
 
 
 def test_min_score_filters_garbage():
     r, _ = build_retriever(DOCS)
-    res = r.retrieve("mua bánh mì ở đâu", force=True)  # unrelated
-    assert all(d.score >= MiniCfg.retriever_min_score for d in res.docs)
+    res = r.retrieve("mua bánh mì ở đâu")  # unrelated -> evidence bar drops it
+    assert res.docs == []
 
 
 def test_not_ready_returns_empty():
     emb = FakeEmbedder()
     r = Retriever(MiniCfg(), emb)
     assert not r.ready
-    res = r.retrieve("anything", force=True)
+    res = r.retrieve("anything")
     assert res.docs == []

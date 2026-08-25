@@ -166,6 +166,9 @@ class ConversationOrchestrator:
                 if cached_reply is not None:
                     trace.mark("answer_cache")
                     reply, path = cached_reply, "answer-cache"
+                    # Replayed answers still count as "shown" for dedup.
+                    if self.answer_cache.last_hit_chunk_ids:
+                        memory.mark_chunks_shown(self.answer_cache.last_hit_chunk_ids)
                     self._queue_speech(reply)
                 else:
                     reply, path = self._generate_reply(
@@ -256,7 +259,10 @@ class ConversationOrchestrator:
                 ]
                 memory.mark_chunks_shown([d.chunk_id for d in result.docs])
         if trace is not None:
-            trace.set(docs=len(docs))
+            payload = {"docs": len(docs)}
+            if result is not None:
+                payload["best_sim"] = round(result.best_sim, 3)
+            trace.set(**payload)
 
         messages, meta = build_messages(
             self.system_prompt,
@@ -358,7 +364,12 @@ class ConversationOrchestrator:
         ):
             # Self-contained + doc-grounded + fully spoken: safe to replay for
             # the next visitor who asks the same thing.
-            self.answer_cache.store(user_text, reply, q_vec=q_vec)
+            self.answer_cache.store(
+                user_text,
+                reply,
+                q_vec=q_vec,
+                chunk_ids=[d.chunk_id for d in result.docs],
+            )
         return (reply or self.cfg.fallback_reply), path
 
     # ------------------------------------------------------------------

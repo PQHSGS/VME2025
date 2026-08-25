@@ -24,7 +24,7 @@ def test_rag_retrieve_forwards_memory_ctx(monkeypatch):
     class FakeRetriever:
         ready = True
 
-        def retrieve(self, query, memory=None, exclude_ids=None, force=False,
+        def retrieve(self, query, memory=None, exclude_ids=None,
                      q_vec=None):
             captured["query"] = query
             captured["topics"] = memory.last_topics()
