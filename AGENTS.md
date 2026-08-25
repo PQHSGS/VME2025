@@ -25,8 +25,8 @@ this orchestrator is deliberately a hand-rolled state machine.
 All Python commands MUST run inside the project venv:
 
 ```
-D:\Code\VME\.vme_tsg\Scripts\python.exe        # direct (safest for agents)
-D:\Code\VME\.vme_tsg\Scripts\Activate.ps1      # or activate first
+.venv (project root)\Scripts\python.exe        # direct (safest for agents)
+.venv (project root)\Scripts\Activate.ps1      # or activate first
 ```
 
 A bare `python` resolves to the system install, which is missing
@@ -35,17 +35,17 @@ faiss/torch/vieneu/sherpa-onnx and fails with confusing ImportErrors.
 ## Commands
 
 ```bash
-D:\Code\VME\.vme_tsg\Scripts\python.exe -m pip install -r requirements.txt   # copy .env.example .env first
-D:\Code\VME\.vme_tsg\Scripts\python.exe -m rag.ingest    # ONE TIME: build data/faiss from data/kb/*.txt
-D:\Code\VME\.vme_tsg\Scripts\python.exe -m pytest tests -q               # full test suite (mock-safe, offline)
-D:\Code\VME\.vme_tsg\Scripts\python.exe run.py --check   # component health report, no downloads
-D:\Code\VME\.vme_tsg\Scripts\python.exe run.py --dev     # typed turns, same brain as voice mode
-D:\Code\VME\.vme_tsg\Scripts\python.exe run.py           # voice loop
-D:\Code\VME\.vme_tsg\Scripts\python.exe run.py --microservice  # services on :8001-8004 + kiosk controller
-D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/smoke_services.py --only rag,tts,llm  # e2e service check
-D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/bench_rag.py         # hit@k + MRR vs golden QA (index required)
-D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/bench_latency.py     # per-stage latency percentiles
-D:\Code\VME\.vme_tsg\Scripts\python.exe scripts/trace_summary.py     # summarize logs/traces.jsonl after a show-hour
+.venv (project root)\Scripts\python.exe -m pip install -r requirements.txt   # copy .env.example .env first
+.venv (project root)\Scripts\python.exe -m rag.ingest    # ONE TIME: build data/faiss from data/kb/*.txt
+.venv (project root)\Scripts\python.exe -m pytest tests -q               # full test suite (mock-safe, offline)
+.venv (project root)\Scripts\python.exe run.py --check   # component health report, no downloads
+.venv (project root)\Scripts\python.exe run.py --dev     # typed turns, same brain as voice mode
+.venv (project root)\Scripts\python.exe run.py           # voice loop
+.venv (project root)\Scripts\python.exe run.py --microservice  # services on :8001-8004 + kiosk controller
+.venv (project root)\Scripts\python.exe scripts/smoke_services.py --only rag,tts,llm  # e2e service check
+.venv (project root)\Scripts\python.exe scripts/bench_rag.py         # hit@k + MRR vs golden QA (index required)
+.venv (project root)\Scripts\python.exe scripts/bench_latency.py     # per-stage latency percentiles
+.venv (project root)\Scripts\python.exe scripts/trace_summary.py     # summarize logs/traces.jsonl after a show-hour
 ```
 
 Heavy deps (faiss, torch, faster_whisper, edge_tts, vieneu) are imported

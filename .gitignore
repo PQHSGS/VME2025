@@ -1,6 +1,9 @@
 # secrets
 .env
 
+# virtualenv (project-local)
+.venv/
+
 # runtime artifacts
 logs/
 data/faiss/
