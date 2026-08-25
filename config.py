@@ -134,6 +134,11 @@ class Config:
     # ==================================================================
     # Capture — push-to-talk end-of-turn windows
     # ==================================================================
+    # How a turn ENDS: smart = ENTER toggles + auto-stop via smart-turn
+    # classifier (kid hesitations keep recording); manual = ONLY the
+    # operator's ENTER stops it (pure push-to-toggle); hold = record while
+    # ENTER is held, release stops (zero detection latency).
+    ptt_mode: str = _env_str("PTT_MODE", "smart")  # smart | manual | hold
     # [TUNE] legacy fixed quiet window when smart-turn is off/failed.
     silence_end_ms: float = _env_float("SILENCE_END_MS", 1200.0)
     # Speech shorter than this is treated as noise and dropped.

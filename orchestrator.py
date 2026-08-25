@@ -385,8 +385,14 @@ class ConversationOrchestrator:
         watcher = EnterKeyWatcher()
         watcher.start()
         recorder = MicRecorder(self.cfg)
+        mode = getattr(self.cfg, "ptt_mode", "smart")
+        hints = {
+            "smart": "Nhấn ENTER để bắt đầu nói. Im lặng ~1.2s hoặc nhấn ENTER để kết thúc.",
+            "manual": "Push-to-talk thuần: ENTER bắt đầu, chỉ ENTER kết thúc.",
+            "hold": "Giữ ENTER để nói, thả tay để gửi.",
+        }
         print("\n=== Ông Tiến sĩ Giấy - realtime ===")
-        print("Nhấn ENTER để bắt đầu nói. Im lặng ~1.2s hoặc nhấn ENTER để kết thúc.")
+        print(hints.get(mode, hints["smart"]))
         print("Trong lúc ông nói: nhấn ENTER để chen ngang. Ctrl+C để thoát.\n")
 
         if self.stt is not None and not self.stt.ready:
@@ -417,9 +423,12 @@ class ConversationOrchestrator:
                             memory.amend_last_bot_reply(heard)
                             print(f"  (ông dừng lại, đã nghe: {heard[:60]}...)")
                         continue
-                    audio = recorder.record_until_turn_end(
-                        stop_check=watcher.consume_press
-                    )
+                    if mode == "hold":
+                        audio = recorder.record_hold(watcher.is_down)
+                    else:
+                        audio = recorder.record_until_turn_end(
+                            stop_check=watcher.consume_press
+                        )
                     with budget("asr.transcribe", 3.0):
                         text = (
                             self.stt.transcribe(audio, SAMPLE_RATE)

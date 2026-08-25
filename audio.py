@@ -118,6 +118,9 @@ class MicRecorder:
         """
         import sounddevice as sd
 
+        if getattr(self.cfg, "ptt_mode", "smart") == "manual":
+            return self._record_manual(stop_check=stop_check)
+
         if floor is None:
             if (
                 self._cached_floor is None
@@ -233,6 +236,101 @@ class MicRecorder:
         logger.info("captured %.2fs of speech", trimmed.shape[0] / SAMPLE_RATE)
         return trimmed
 
+    def _record_manual(self, stop_check=None) -> np.ndarray:
+        """Pure push-to-toggle: ONLY the operator's stop_check ends the turn.
+
+        No silence auto-stop, no classifier - a hesitating kid can never be
+        cut off, at the cost of one extra ENTER per turn.
+        """
+        import sounddevice as sd
+
+        started = time.perf_counter()
+        self._frames.clear()
+        self._stop_flag.clear()
+        with sd.InputStream(
+            samplerate=SAMPLE_RATE,
+            channels=1,
+            dtype="float32",
+            blocksize=int(SAMPLE_RATE * FRAME_MS / 1000),
+            callback=self._callback,
+        ):
+            self._recording.set()
+            logger.info("recording (manual push-to-talk)...")
+            while True:
+                time.sleep(FRAME_MS / 1000)
+                if stop_check is not None and stop_check():
+                    logger.info("operator ended the turn")
+                    break
+                if (
+                    time.perf_counter() - started
+                ) >= self.cfg.max_utterance_seconds:
+                    logger.info("max utterance length reached")
+                    break
+        self._recording.clear()
+
+        audio = self._concat_frames()
+        # Conservative threshold; no floor calibration delay in this path.
+        threshold = max((self._cached_floor or 0.004) * 2.5, 0.0035)
+        trimmed = trim_silence(audio, threshold, sample_rate=SAMPLE_RATE)
+        if trimmed.shape[0] < self.cfg.min_speech_ms / 1000 * SAMPLE_RATE:
+            logger.info("captured audio too short; treating as empty")
+            return np.zeros(0, dtype=np.float32)
+        return trimmed
+
+    def record_hold(self, down_fn, progress_cb=None) -> np.ndarray:
+        """Hold-to-talk: record while ``down_fn()`` is True, release = stop.
+
+        Zero end-of-turn detection latency: the buffered frames already
+        contain everything up to the release instant.
+        """
+        import sounddevice as sd
+
+        floor = self._cached_floor
+        if floor is None:
+            floor = self._estimate_floor()
+            self._cached_floor = floor
+        threshold = max(floor * 2.5, 0.0035)
+
+        started = time.perf_counter()
+        self._frames.clear()
+        self._stop_flag.clear()
+        with sd.InputStream(
+            samplerate=SAMPLE_RATE,
+            channels=1,
+            dtype="float32",
+            blocksize=int(SAMPLE_RATE * FRAME_MS / 1000),
+            callback=self._callback,
+        ):
+            self._recording.set()
+            logger.info("recording while ENTER held (hold-to-talk)...")
+            time.sleep(FRAME_MS / 1000)
+            while True:
+                time.sleep(FRAME_MS / 1000)
+                held_s = time.perf_counter() - started
+                if not down_fn():
+                    if held_s * 1000 < self.cfg.min_speech_ms:
+                        logger.info("key tap too short - ignoring")
+                        return np.zeros(0, dtype=np.float32)
+                    logger.info("released after %.2fs", held_s)
+                    break
+                if progress_cb:
+                    recent = self._frames[-1] if self._frames else None
+                    progress_cb(
+                        self._rms(recent) if recent is not None else 0.0,
+                        held_s * 1000,
+                    )
+                if held_s >= self.cfg.max_utterance_seconds:
+                    logger.info("max utterance length reached")
+                    break
+        self._recording.clear()
+
+        audio = self._concat_frames()
+        trimmed = trim_silence(audio, threshold, sample_rate=SAMPLE_RATE)
+        if trimmed.shape[0] < self.cfg.min_speech_ms / 1000 * SAMPLE_RATE:
+            logger.info("captured audio too short; treating as empty")
+            return np.zeros(0, dtype=np.float32)
+        return trimmed
+
     def _concat_frames(self) -> np.ndarray:
         audio = self._buffer_snapshot()
         if audio is None:
@@ -304,6 +402,16 @@ class EnterKeyWatcher:
                     with self._lock:
                         self._presses += 1
             time.sleep(0.02)
+
+    # ------------------------------------------------------------------
+    def is_down(self) -> bool:
+        """True while ENTER is physically held (Windows key state)."""
+        try:
+            import ctypes
+
+            return bool(ctypes.windll.user32.GetAsyncKeyState(0x0D) & 0x8000)
+        except Exception:
+            return False
 
     def consume_press(self) -> bool:
         with self._lock:
