@@ -10,11 +10,11 @@ from __future__ import annotations
 
 import csv
 import logging
-import re
 from dataclasses import dataclass
 
 import numpy as np
 
+from answer_cache import normalize as _normalize  # single normalization source
 from config import SITUATIONS_CSV
 
 logger = logging.getLogger("rag.situations")
@@ -26,10 +26,6 @@ class Situation:
     guidance: str
     answer: str
     score: float
-
-
-def _normalize(text: str) -> str:
-    return re.sub(r"\s+", " ", text.lower().strip().strip("?.!,")).strip()
 
 
 class SituationMatcher:

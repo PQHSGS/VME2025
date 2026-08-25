@@ -1,11 +1,12 @@
 """Conversation orchestrator - the realtime state machine.
 
 Turn flow:
-  IDLE -> RECORDING (push-to-talk + silence auto-stop)
-       -> TRANSCRIBING (budget ~3s soft)
-       -> THINKING     (situation fast-path OR gate->retrieve->single LLM call;
-                        TTFT filler spoken if the model stalls; hard deadline)
-       -> SPEAKING     (sentence-level pipelined TTS, barge-in via ENTER)
+  IDLE -> RECORDING (PTT_MODE: smart auto-stop | manual toggle | hold)
+        -> TRANSCRIBING (gipformer via ASR service, ~3s soft budget;
+                         homophones canonicalized before the brain sees them)
+        -> THINKING     (situation fast-path OR gate->retrieve->single LLM call;
+                         TTFT filler spoken if the model stalls; hard deadline)
+        -> SPEAKING     (sentence-level pipelined TTS, barge-in via ENTER)
 
 Everything is injectable so tests/dev mode can run the exact same code path
 with mock ASR/LLM/TTS.

@@ -44,7 +44,6 @@ class MicRecorder:
         self._stream = None
         self._frames: list[np.ndarray] = []
         self._recording = threading.Event()
-        self._stop_flag = threading.Event()
         self._lock = threading.Lock()
         self._cached_floor: float | None = None
         self._since_floor_check = 0
@@ -144,10 +143,8 @@ class MicRecorder:
         next_check_ms = check_every_ms
 
         self._frames.clear()
-        self._stop_flag.clear()
         speech_seen_ms = 0.0
         silent_run_ms = 0.0
-
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=1,
@@ -159,7 +156,7 @@ class MicRecorder:
             logger.info(
                 "recording started (noise floor %.4f, threshold %.4f)", floor, threshold
             )
-            while not self._stop_flag.is_set():
+            while True:
                 time.sleep(FRAME_MS / 1000)
                 with self._lock:
                     recent = self._frames[-1] if self._frames else None
@@ -246,7 +243,6 @@ class MicRecorder:
 
         started = time.perf_counter()
         self._frames.clear()
-        self._stop_flag.clear()
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=1,
@@ -293,7 +289,6 @@ class MicRecorder:
 
         started = time.perf_counter()
         self._frames.clear()
-        self._stop_flag.clear()
         with sd.InputStream(
             samplerate=SAMPLE_RATE,
             channels=1,
