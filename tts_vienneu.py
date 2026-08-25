@@ -24,11 +24,12 @@ VIENEU_RATE = 48000
 class VienneuSynth:
     """Callable synthesizer: text -> (int16 mono pcm @ 48kHz, 48000)."""
 
-    def __init__(self, voice: str = "", backend: str = "onnx"):
+    def __init__(self, voice: str = "", backend: str = "onnx", threads: int = 0):
         # "Adam" is the SDK's documented default preset; used when the
         # configured voice name does not match any preset.
         self.voice = voice.strip() or "Adam"
         self.backend = backend
+        self.threads = threads
         self._model = None
         self._lock = threading.Lock()
 
@@ -39,11 +40,16 @@ class VienneuSynth:
                     from vieneu import Vieneu
 
                     logger.info(
-                        "loading VieNeu-TTS v3 Turbo (backend=%s voice=%s)",
+                        "loading VieNeu-TTS v3 Turbo (backend=%s voice=%s "
+                        "threads=%s)",
                         self.backend,
                         self.voice,
+                        self.threads or "auto",
                     )
-                    self._model = Vieneu(backend=self.backend)
+                    kwargs = {"backend": self.backend}
+                    if self.threads:
+                        kwargs["threads"] = self.threads
+                    self._model = Vieneu(**kwargs)
                     self._validate_voice()
         return self._model
 

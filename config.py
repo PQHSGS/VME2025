@@ -153,6 +153,10 @@ class Config:
     tts_engine: str = _env_str("TTS_ENGINE", "vienneu")  # vienneu | edge
     vienneu_voice: str = _env_str("VIENEU_VOICE", "Minh Đức")
     vienneu_backend: str = _env_str("VIENEU_BACKEND", "onnx")  # onnx | auto
+    # [TUNE] ONNX intra-op threads for synthesis. Measured on the kiosk box:
+    # 4 beats auto (cap 8) - RTF 0.88 vs 0.94 on long lines, 536ms vs 652ms
+    # openers. 0 leaves the SDK default.
+    vienneu_threads: int = _env_int("VIENEU_THREADS", 4)
     # edge-tts fallback voice
     tts_voice: str = _env_str("TTS_VOICE", "vi-VN-NamMinhNeural")
     tts_rate: str = _env_str("TTS_RATE", "+10%")

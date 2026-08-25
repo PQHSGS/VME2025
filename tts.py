@@ -377,6 +377,7 @@ def build_tts_player(cfg, probe: bool = False) -> "TTSPlayer":
                 synth = VienneuSynth(
                     cfg.vienneu_voice,
                     cfg.vienneu_backend,
+                    threads=cfg.vienneu_threads,
                 )
                 probed = True
                 if probe:
