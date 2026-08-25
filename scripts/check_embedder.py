@@ -25,7 +25,7 @@ docs = [
 vecs = emb.encode(docs)
 q = emb.encode_query(query)
 sims = vecs @ q
-for text, s in zip(docs, sims):
+for text, s in zip(docs, sims, strict=False):
     print(f"  {s:.3f}  {text[:50]}")
 margin = float(sims[0] - max(sims[1], sims[2]))
 assert margin > 0.2, f"gold doc must clearly win (margin={margin:.3f})"

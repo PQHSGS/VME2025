@@ -121,7 +121,8 @@ def main() -> int:
     args = ap.parse_args()
 
     manifest_path = DATA / "manifest.jsonl"
-    rows = [json.loads(line) for line in open(manifest_path, encoding="utf-8")]
+    with open(manifest_path, encoding="utf-8") as handle:
+        rows = [json.loads(line) for line in handle]
     if args.limit:
         rows = rows[:args.limit]
     print(f"{len(rows)} clips from {manifest_path}")

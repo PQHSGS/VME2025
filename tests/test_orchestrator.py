@@ -68,7 +68,7 @@ def build(**overrides):
     orch = ConversationOrchestrator(
         cfg,
         retriever=None,
-        situations=overrides.get("situations", None),
+        situations=overrides.get("situations"),
         memory_manager=MemoryManager(cfg),
         tts=tts,
         stt=None,

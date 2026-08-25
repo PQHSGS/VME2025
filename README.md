@@ -4,16 +4,17 @@ Realtime voice RAG chatbot for the Mid-Autumn Festival kiosk at the Vietnam
 Museum of Ethnology. Vietnamese-only. Cascaded streaming pipeline:
 
 ```
-mic → capture + smart-turn end-of-stop → faster-whisper ASR → situation fast-path
-    → gate → FAISS retrieval → layered context → Gemini LLM stream
-    → sentence splitter → VieNeu-TTS (local) / edge-tts stream → speaker
-                                                       (barge-in anywhere)
+mic → push-to-talk capture (smart-turn / manual / hold) → gipformer-65M ASR (int8)
+    → homophone post-filter → situation fast-path → gate → FAISS retrieval
+    → layered context → Gemini LLM stream → sentence splitter
+    → VieNeu-TTS v3 Turbo (local) / edge-tts fallback → speaker
+                                         (barge-in anywhere)
 ```
 
 Design goals, in order:
 
-1. **TTFA** (time-to-first-audio) < ~1s: sentence-level pipelining, TTFT
-   fillers, greedy ASR, no agentic loops (one LLM round-trip per turn).
+1. **TTFA** (time-to-first-audio): sentence-level pipelining, TTFT fillers,
+   greedy ASR, no agentic loops (one LLM round-trip per turn).
 2. **Faithful context**: retrieved docs are per-turn disposable; history stays
    clean (see *Context management*).
 3. **Graceful degradation**: every external dependency has a deadline and a
@@ -23,59 +24,74 @@ Design goals, in order:
 
 | Path | Role |
 |---|---|
-| `config.py` | all knobs, env-overridable (`​.env`) |
-| `orchestrator.py` | turn state machine: fast-path → retrieve → single streamed LLM call |
+| `config.py` | all knobs, env-overridable (`.env`); `_env` defends against dotenv comment-poisoning |
+| `orchestrator.py` | turn state machine: fast-path → retrieve → single streamed LLM call; embed-once for all consumers |
 | `memory.py` | layered session memory (facts / rolling summary / recent window) |
-| `prompts.py` + `prompts/system_prompt.md` | strict budgeted prompt assembly |
+| `prompts.py` + `prompts/system_prompt.md` | budgeted prompt assembly + persona |
 | `rag/` | ingest, retriever (gate→FAISS→MMR→char budget), scripted situations |
+| `answer_cache.py` | semantic replay cache with multi-variant rotation: repeated questions skip retrieval + LLM entirely |
 | `llm.py` | backends: Gemini / mock (`select_backend` fails loud when no live backend) |
-| `asr.py` | EraX-WoW-Turbo CT2, greedy + hotwords, lazy load |
-| `tts.py` | engine chain: VieNeu-TTS v3 Turbo (local) → edge-tts → text-only; prefetch queue, LRU cache, barge-in stop, heard-sentence tracking |
-| `tts_vienneu.py` | VieNeu-TTS v3 Turbo wrapper (`vieneu` SDK; ONNX/CPU int8 or PyTorch/GPU) |
-| `sentences.py` | Vietnamese-aware incremental splitter |
+| `asr.py` | gipformer-65M int8 via sherpa-onnx (default); WhisperSTT legacy fallback |
+| `asr_correct.py` | zero-latency domain-homophone filter; venue overrides via `data/asr_homophones.csv` |
+| `tts.py` | engine chain: VieNeu v3 Turbo (local) → edge-tts → text-only; prefetch queue, LRU cache, barge-in stop, heard-sentence tracking |
+| `tts_vienneu.py` | VieNeu wrapper (`vieneu` SDK; ONNX/CPU, threads-tunable) |
+| `sentences.py` | Vietnamese-aware incremental splitter (first-clause early release) |
 | `resilience.py` | deadlines, soft budgets, failure tracker (LLM circuit breaker) |
-| `telemetry.py` | one JSONL span per turn → `logs/traces.jsonl` |
-| `audio.py` | push-to-talk capture with auto end-of-turn (smart-turn ONNX + silence fallback), noise-floor calibration |
-| `smart_turn.py` | Smart Turn v3.2 end-of-turn classifier — finishes turns ~400ms after speech stops, waits out mid-sentence pauses |
-| `answer_cache.py` | semantic replay cache: repeated questions skip retrieval + LLM entirely |
+| `telemetry.py` | one JSONL span per turn → `logs/traces.jsonl`; transcripts → `conversations.jsonl` |
+| `audio.py` | PTT capture: smart-turn auto-stop / manual toggle / hold-to-talk; noise-floor calibration; debounced ENTER watcher |
+| `smart_turn.py` | Smart Turn v3.2 end-of-turn classifier (bundled ONNX) |
+| `services/` | microservice layer: FastAPI apps on :8001-8004, Remote* clients, process manager |
 
 ## Setup
 
 ```bash
-pip install -r requirements.txt
+.venv\Scripts\python.exe -m pip install -r requirements.txt
 copy .env.example .env          # then set GEMINI_API_KEY
 
-python -m rag.ingest            # ONE TIME: build data/faiss from data/kb/*.txt
-                                # (needs the embedder download; run in deploy env)
-python run.py --check           # component health report
+.venv\Scripts\python.exe -m rag.ingest            # ONE TIME: build data/faiss
+.venv\Scripts\python.exe scripts/fetch_gipformer.py   # ONE TIME: ASR weights (~70MB)
+.venv\Scripts\python.exe run.py --check           # component health report
 ```
 
-First voice run downloads the ASR model (`erax-ai/EraX-WoW-Turbo-V1.1-CT2`)
-to the HF cache. For an offline box, pre-download once or point `ASR_MODEL`
-at a local CT2 directory.
+Embedder + VieNeu weights download once into the HF cache on first use —
+pre-download on offline boxes.
 
 ## Running
 
+Single command (spawns all four services itself):
+
 ```bash
-python run.py            # voice loop (mic + speaker)
-python run.py --dev      # typed turns, same brain — use this while tuning
-python run.py --no-tts   # voice in, text out
-python run.py --check    # status and exit
+python run.py --microservice     # services on :8001-8004 + kiosk controller
 ```
 
-Voice loop: press **ENTER**, speak; a learned end-of-turn model ends the turn
-~400ms after you stop (a fixed ~1.2s silence window is the fallback), or press
-second ENTER. While the bot is talking, ENTER = barge-in (cuts audio; only
-the actually-heard prefix is kept in history). After `ATTRACT_AFTER_MIN`
-quiet minutes the kiosk speaks a short rotating invitation so passive
-visitors discover it.
-
-Tests / benchmarks:
+Or manage services yourself and let the controller adopt them:
 
 ```bash
-python -m pytest tests -q
-python scripts/bench_rag.py        # hit@k + MRR vs golden QA (index required)
-python scripts/bench_latency.py    # per-stage latency percentiles (mock-safe)
+python -m services.asr_service --port 8001    # + llm/rag/tts on 8002-8004
+python run.py --microservice                  # adopts healthy listeners
+```
+
+Controller-only flags: `--dev` (typed turns, same brain), `--no-tts`,
+`--check`. Diagnostics: `scripts/smoke_services.py`, `scripts/check_audio.py`,
+`scripts/bench_rag.py`, `scripts/bench_latency.py`, `scripts/bench_tts_speed.py`,
+`scripts/trace_summary.py`.
+
+Voice loop: press **ENTER**, speak; end of turn depends on `PTT_MODE` —
+
+- `smart` *(default)*: auto-stop ~400ms after you stop (learned classifier,
+  fixed 1.2s silence window as fallback), or press ENTER again;
+- `manual`: only your ENTER stops it — hesitating kids are never cut off;
+- `hold`: hold ENTER to talk, release to send (zero detection latency).
+
+While the bot is talking, ENTER = barge-in (cuts audio; only the
+actually-heard prefix is kept in history). After `ATTRACT_AFTER_MIN` quiet
+minutes the kiosk speaks a short rotating invitation.
+
+Tests:
+
+```bash
+python -m pytest tests -q         # offline, mock-safe
+ruff check .                      # lint gate (see .ruff.toml policy)
 ```
 
 ## Context management (why it looks like this)
@@ -88,9 +104,11 @@ history, so context cannot compound across turns:
 [user]   TÓM TẮT (rolling summary)      ← async refresh every N turns
          THÔNG TIN ĐÃ BIẾT              ← regex-extracted facts (name, likes)
          TÀI LIỆU THAM KHẢO [1..k]      ← retrieval hits, char-budgeted
+         GỢI Ý TRẢ LỜI (optional)       ← operator steering from situations.csv
          HỘI THOẠI GẦN ĐÂY              ← last K verbatim exchanges
          CÂU HỎI HIỆN TẠI
-[assistant] "Ông nghe rồi..."           ← role pre-ack, keeps model in character
+[assistant] "Ông nghe rồi..."           ← role pre-ack (stripped at the
+                                          Gemini protocol boundary)
 ```
 
 Supporting behaviors: seen-chunk penalties prevent re-telling within a
@@ -99,18 +117,21 @@ before embedding; barge-in rewrites history to what was actually spoken.
 
 ## Latency & failure contract
 
-Soft budgets log warnings when breached: ASR ≤3s, LLM hard deadline 15s.
-Repeated questions replay instantly from the semantic answer cache. If no
-token by `TTFT_FILLER_AFTER_S`, a random filler
-line is spoken (pre-synthesized at warmup). Failure handling:
+Measured on the kiosk CPU: warm VieNeu synthesis runs faster than realtime
+(`VIENEU_THREADS=4`, RTF ≈ 0.7–0.9), gipformer decode ≈ RTF 0.033, Gemini
+TTFT ≈ 1s warm. Soft budgets warn when breached: ASR ≤3s, LLM hard deadline
+15s. Failure handling:
 
 - **LLM circuit breaker**: 3 consecutive backend failures open the circuit
   for `LLM_COOLDOWN_S` — turns answer instantly with the fallback reply
   instead of stalling; a clean reply closes it again.
 - **Startup fail-loud**: `select_backend` raises when no LLM is reachable;
   the silent mock loop only exists via explicit `LLM_BACKEND=mock`.
-- **TTS engine chain**: VieNeu (offline) probed at startup, edge-tts as
-  automatic cloud fallback, text-only as the last resort.
+- **Microservice resilience**: a dead service self-respawns (manager) or is
+  restarted by its operator terminal; the kiosk degrades per-component
+  (no docs / text-only / polite retry) instead of crashing turns.
+- **TTS engine chain**: VieNeu (offline) primary, edge-tts cloud fallback,
+  text-only as the last resort.
 - **Session hygiene**: >`SESSION_IDLE_RESET_MIN` idle minutes rotate the
   session so the next visitor never inherits the previous child's facts.
 
@@ -123,12 +144,10 @@ Traces land in `logs/traces.jsonl`:
 
 ## Kiosk ops notes
 
-- Data assets live here: `data/kb/trung_thu.txt` (knowledge base),
-  `data/situations.csv` (scripted Q&A). Edit those, rerun `rag.ingest`.
+- Data assets live here: `data/kb/*.txt` (knowledge base),
+  `data/situations.csv` (scripted Q&A + guidance column). Edit those, rerun
+  `rag.ingest`; grow `data/asr_homophones.csv` from venue traces.
 - TTS voice: set `VIENEU_VOICE` to one of the ~20 v3-Turbo presets
   (`python -c "from vieneu import Vieneu; print(Vieneu().list_preset_voices())"`).
-  First run downloads the model to the HF cache — pre-download on offline boxes.
-- The legacy folders (*Current Flow / API FLow / Enhanced Flow*) were retired;
-  their prompts/questions/knowledge survive under `data/` and `prompts/`.
-- API keys come from `.env` only. The keys hardcoded in the legacy files are
-  burned into git-less disk history — treat them as compromised regardless.
+- API keys come from `.env` only; `.env` is gitignored, `.env.example` is the
+  documented template.

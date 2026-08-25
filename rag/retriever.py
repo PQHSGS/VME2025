@@ -190,7 +190,7 @@ class Retriever:
                 self.cfg.dedup_window_turns
             )
         penalty_applied: dict[str, float] = {}
-        for raw_score, idx in zip(scores[0], ids[0]):
+        for raw_score, idx in zip(scores[0], ids[0], strict=False):
             if idx < 0:
                 continue
             score = float(raw_score)

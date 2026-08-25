@@ -19,14 +19,15 @@ import sys
 import time
 from pathlib import Path
 
-sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
-sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-
 import numpy as np
 import soundfile as sf
 
-from config import Config
-from sentences import SentenceSplitter
+# UTF-8 console before any project import can print Vietnamese.
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from config import Config  # noqa: E402 - needs the sys.path shim above
+from sentences import SentenceSplitter  # noqa: E402
 
 SAMPLE_REPLIES = [
     (

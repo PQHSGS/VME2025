@@ -154,7 +154,7 @@ def build_index(docs: list[dict], embedder, out_dir: Path) -> None:
             top_paths.append(root)
     centroids = np.zeros((len(top_paths), dim), dtype=np.float32)
     counts = np.zeros(len(top_paths), dtype=np.float32)
-    for vec, doc in zip(vectors, docs):
+    for vec, doc in zip(vectors, docs, strict=False):
         row = top_paths.index(doc["path"].split(" > ")[0])
         centroids[row] += vec
         counts[row] += 1

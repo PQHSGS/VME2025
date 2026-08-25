@@ -29,7 +29,8 @@ class FakeIndex:
         return scores[order][None, :], order[None, :]
 
 
-def build_retriever(texts, cfg=MiniCfg()):
+def build_retriever(texts, cfg=None):
+    cfg = cfg or MiniCfg()
     emb = FakeEmbedder(dim=64)
     r = Retriever(cfg, emb)
     vecs = emb.encode([f"[p] {t}" for t in texts], normalize=True)

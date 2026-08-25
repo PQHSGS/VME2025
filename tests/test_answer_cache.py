@@ -57,7 +57,7 @@ def test_exact_hit_skips_embedder():
     calls_before = emb.calls
     assert cache.lookup("ĐÈN ÔNG SAO LÀM BẰNG GÌ") == reply
     # exact tier must not pay for an embedding
-    assert emb.calls == calls_before or True  # encode happens in store only
+    assert emb.calls == calls_before  # encode happens in store only
 
 
 def test_semantic_hit_above_threshold():

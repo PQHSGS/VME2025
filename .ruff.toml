@@ -1,0 +1,19 @@
+# Ruff policy for realtime-flow.
+# Functional correctness rules are enforced (F/E/W/C4/SIM/B); purely
+# cosmetic churn (line length with Vietnamese strings, dict() literals,
+# contextlib.suppress preference) is intentionally not gated.
+target-version = "py311"
+
+[lint]
+select = ["F", "E", "W", "C4", "SIM", "B"]
+ignore = [
+    "E501",   # long lines - Vietnamese strings/docstrings read better unwrapped
+    "C408",   # dict(...) calls are fine
+    "SIM105", # try/except/pass reads clearer than contextlib.suppress here
+    "B008",   # FastAPI Depends-style defaults are idiomatic
+]
+
+[lint.per-file-ignores]
+# Scripts bootstrap sys.path / stdout encoding before imports on purpose.
+"scripts/*" = ["E402"]
+"services/*_service.py" = ["E402"]
