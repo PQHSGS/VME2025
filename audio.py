@@ -396,12 +396,34 @@ class EnterKeyWatcher:
         import msvcrt
 
         while self._running:
-            if msvcrt.kbhit():
-                key = msvcrt.getwch()
-                if key in ("\r", "\n"):
-                    with self._lock:
-                        self._presses += 1
+            self._poll_once(msvcrt)
             time.sleep(0.02)
+
+    # Windows key-repeat streams \r events ~30/s while ENTER is held;
+    # without debouncing, one hold piles up a backlog of phantom
+    # "stop recording" presses that machine-guns the voice loop.
+    _DEBOUNCE_S = 0.25
+
+    def _poll_once(self, kb) -> bool:
+        """Consume at most one key event. True iff ENTER press ACCEPTED."""
+        if not kb.kbhit():
+            return False
+        key = kb.getwch()  # always consume, even non-ENTER keys
+        now = time.monotonic()
+        last = getattr(self, "_last_press", 0.0)
+        if key not in ("\r", "\n") or now - last < self._DEBOUNCE_S:
+            return False
+        # A held key streams \r events forever; past the debounce window,
+        # only accept when the finger actually came back up in between.
+        if self.is_down() and now - last < self._HOLD_SUPPRESS_S:
+            return False
+        self._last_press = now
+        with self._lock:
+            self._presses += 1
+        return True
+
+    # Beyond this, a still-held key's events are treated as repeats.
+    _HOLD_SUPPRESS_S = 30.0
 
     # ------------------------------------------------------------------
     def is_down(self) -> bool:
@@ -412,6 +434,11 @@ class EnterKeyWatcher:
             return bool(ctypes.windll.user32.GetAsyncKeyState(0x0D) & 0x8000)
         except Exception:
             return False
+
+    def drain(self) -> None:
+        """Drop any buffered presses (e.g. key-repeat backlog)."""
+        with self._lock:
+            self._presses = 0
 
     def consume_press(self) -> bool:
         with self._lock:

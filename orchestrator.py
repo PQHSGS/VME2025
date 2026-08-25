@@ -438,6 +438,13 @@ class ConversationOrchestrator:
                     if not text:
                         logger.info("empty transcript - prompting retry")
                         self._say(self.cfg.fallback_reply)
+                        # Let the retry line actually play before listening
+                        # again, and absorb any key-repeat backlog so a held
+                        # ENTER cannot machine-gun empty turns.
+                        if self.tts:
+                            self.tts.wait_done(timeout=10)
+                        time.sleep(0.3)
+                        watcher.drain()
                         continue
                     print(f"  em nhí: {text}")
                     self._barge_in.clear()
