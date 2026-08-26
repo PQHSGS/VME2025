@@ -120,9 +120,8 @@ def build_messages(
 
     recent = list(memory.recent)[-(history_limit or len(memory.recent)) :]
     for exchange in recent:
-        if exchange.user:
+        if exchange.user and exchange.bot:
             messages.append({"role": "user", "content": exchange.user})
-        if exchange.bot:
             messages.append({"role": "assistant", "content": exchange.bot})
 
     context_block = build_context_block(memory, docs, guidance)
