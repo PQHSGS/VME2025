@@ -33,7 +33,6 @@ class MicRecorder:
 
     def __init__(self, cfg):
         self.cfg = cfg
-        self._stream = None
         self._frames: list[np.ndarray] = []
         self._recording = threading.Event()
         self._lock = threading.Lock()
@@ -45,9 +44,6 @@ class MicRecorder:
         if self._recording.is_set():
             with self._lock:
                 self._frames.append(indata.copy())
-
-    def _rms(self, frame: np.ndarray) -> float:
-        return float(np.sqrt(np.mean(np.square(frame.astype(np.float32)))))
 
     def _buffer_snapshot(self) -> np.ndarray | None:
         with self._lock:

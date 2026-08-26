@@ -46,12 +46,6 @@ SAMPLE_REPLIES = [
 OUT_DIR = Path(__file__).resolve().parent.parent / "logs" / "tts_samples"
 
 
-def pcm_to_wav_bytes(pcm: np.ndarray, rate: int) -> bytes:
-    buf = io.BytesIO()
-    sf.write(buf, pcm, rate, subtype="PCM_16", format="WAV")
-    return buf.getvalue()
-
-
 def main() -> int:
     from tts import resample_to
     from tts_vienneu import VienneuSynth
@@ -90,7 +84,6 @@ def main() -> int:
             f"streamed total synth {total_ms:.0f}ms vs full {full_ms:.0f}ms "
             f"-> TTFA win = first-chunk latency only"
         )
-        print(f"first chunk ready in {chunks and 'see chunk 0 line above'}")
 
     print(f"\nwrote {OUT_DIR}\\full_*.wav and streamed_*.wav - listen and compare joins")
     return 0

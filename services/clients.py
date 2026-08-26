@@ -52,13 +52,6 @@ def get_client(transport: httpx.BaseTransport | None = None) -> httpx.Client:
 _SHARED_CLIENT: httpx.Client | None = None
 
 
-def close_shared_client() -> None:
-    global _SHARED_CLIENT
-    if _SHARED_CLIENT is not None:
-        _SHARED_CLIENT.close()
-        _SHARED_CLIENT = None
-
-
 def _timeout(read_s: float) -> httpx.Timeout:
     # connect must stay tight: a dead service should fail fast, not hang the
     # turn. read covers cold model loads on first call (VieNeu ~tens of s).
