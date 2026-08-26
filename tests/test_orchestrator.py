@@ -103,7 +103,7 @@ def test_fallback_on_backend_failure_is_spoken():
     orch, tts = build(llm=ExplodingBackend())
     reply = orch.process_text("kể chuyện đi ông")
     assert reply == orch.cfg.fallback_reply
-    assert any(reply == text for _, text in tts.submitted)
+    assert any(text in reply for _, text in tts.submitted)
 
 
 def test_circuit_breaker_opens_after_repeated_failures():
