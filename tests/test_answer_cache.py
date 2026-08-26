@@ -122,7 +122,9 @@ def test_first_clause_only_once():
 
 def test_clause_window_bounded():
     sp = SentenceSplitter(early_first_clause=True)
-    long_opening = "x" * 90 + ", rồi mới có dấu phẩy sau đó"
+    # 85 x's: comma sits outside the 80-char early-clause window, but the
+    # total stays under max_chars so no force-split fires either.
+    long_opening = "x" * 85 + ", rồi mới có dấu phẩy"
     out = sp.push(long_opening)
     assert out == []  # comma outside the 80-char window -> no early emit
 

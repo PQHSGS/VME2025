@@ -221,6 +221,7 @@ class ConversationOrchestrator:
 
     def _make_splitter(self) -> SentenceSplitter:
         return SentenceSplitter(
+            max_chars=self.cfg.tts_max_chunk_chars,
             early_first_clause=self.cfg.ttfa_first_clause,
         )
 

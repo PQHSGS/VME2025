@@ -45,7 +45,11 @@ _ABBREV = (
     "thpt",
     "thcs",
 )
-_MAX_SENT_CHARS = 240  # force-split longer than this at a soft boundary
+# Chunks longer than this are split at a soft boundary (comma first).
+# VieNeu RTF~0.9 on CPU: a chunk needs almost its own playtime to
+# synthesize, so an oversized sentence starves playback and creates an
+# audible mid-reply gap even with parallel synth workers.
+_MAX_SENT_CHARS = 110
 _MIN_SENT_CHARS = 12  # merge tiny fragments with the next sentence
 
 
@@ -76,7 +80,7 @@ class SentenceSplitter:
             sentence, rest = self._pop_sentence(self._buf)
             if sentence is None:
                 break
-            out.append(sentence)
+            out.extend(self._split_long(sentence))
             self._buf = rest
         if out:
             self._emitted_any = True
@@ -98,7 +102,27 @@ class SentenceSplitter:
     def flush(self) -> list[str]:
         tail = self._buf.strip()
         self._buf = ""
-        return [tail] if tail else []
+        return self._split_long(tail) if tail else []
+
+    # ------------------------------------------------------------------
+    def _split_long(self, sentence: str) -> list[str]:
+        """Break an over-long sentence at soft boundaries (comma-first).
+
+        A grammatically complete sentence that happens to be long would
+        otherwise pop whole and monopolize synthesis for ~RTF × its audio
+        length - the main driver of audible gaps.
+        """
+        if len(sentence) <= self.max_chars:
+            return [sentence]
+        parts: list[str] = []
+        rest = sentence
+        while len(rest) > self.max_chars:
+            cut = self._soft_cut_index(rest, self.max_chars)
+            parts.append(rest[:cut].strip())
+            rest = rest[cut:].lstrip()
+        if rest:
+            parts.append(rest)
+        return [p for p in parts if p]
 
     # ------------------------------------------------------------------
     def _pop_first_clause(self, buf: str) -> str | None:

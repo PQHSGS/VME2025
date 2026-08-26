@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from collections import OrderedDict
 from dataclasses import dataclass, field
@@ -60,6 +61,7 @@ class Retriever:
         self._embed_cache: OrderedDict[str, np.ndarray] = OrderedDict()
         # KB chunk vectors are static; encode each chunk once, ever.
         self._mmr_vec_cache: dict[str, np.ndarray] = {}
+        self._vectors_warm = threading.Event()
 
     # ------------------------------------------------------------------
     def load(self, index_dir: Path | None = None) -> bool:
@@ -82,28 +84,56 @@ class Retriever:
     def ready(self) -> bool:
         return self.index is not None
 
-    def warm_vectors(self):
-        """Pre-encode every KB chunk in a daemon thread.
+    def warm_vectors(self, background: bool = True):
+        """Pre-encode every KB chunk, in batches of 64.
 
         First-touch MMR otherwise costs ~8 embed calls (~2-3s CPU) for the
-        first visitor who asks about an untouched section. Returns the
-        warming thread so callers/benches can join it.
+        first visitor who asks about an untouched section.
+
+        ``background=False`` runs inline - used at service boot so the
+        whole-KB cost (~60s CPU) lands before the service reports ready.
+        Background warming must NOT be mixed with live queries: OMP
+        serializes parallel regions process-wide, so a concurrent query
+        waits behind the entire batch (measured: 68s first-turn retrieval).
+        Sets ``vectors_warm`` either way.
         """
         import threading
 
         def run():
             started = time.perf_counter()
-            for meta in self.docs_meta:
-                self._chunk_vector(meta)
-            logger.info(
-                "mmr vector cache warmed: %d chunks in %.1fs",
-                len(self._mmr_vec_cache),
-                time.perf_counter() - started,
-            )
+            try:
+                pending = [
+                    m
+                    for m in self.docs_meta
+                    if m["chunk_id"] not in self._mmr_vec_cache
+                ]
+                for i in range(0, len(pending), 64):
+                    batch = pending[i : i + 64]
+                    texts = [f"[{m['path']}] {m['text']}" for m in batch]
+                    vectors = self.embedder.encode(texts, normalize=True)
+                    for meta, vec in zip(batch, vectors, strict=False):
+                        self._mmr_vec_cache[meta["chunk_id"]] = vec
+                logger.info(
+                    "mmr vector cache warmed: %d chunks in %.1fs",
+                    len(self._mmr_vec_cache),
+                    time.perf_counter() - started,
+                )
+            except Exception:
+                logger.exception("vector cache warm failed")
+            finally:
+                self._vectors_warm.set()
 
+        if not background:
+            run()
+            return None
         thread = threading.Thread(target=run, name="mmr-warm", daemon=True)
         thread.start()
         return thread
+
+    @property
+    def vectors_warm(self) -> bool:
+        """True once every KB chunk vector is cached (or warming failed)."""
+        return self._vectors_warm.is_set()
 
     # ------------------------------------------------------------------
     _EMBED_CACHE_MAX = 512

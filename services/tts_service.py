@@ -56,7 +56,7 @@ def _init_tts():
         # first /synthesize as an error field instead of killing the service.
         _player = build_tts_player(cfg, probe=False)
         logger.info(
-            "TTS service initialized: %s", getattr(_player, "engine_name", "unknown")
+            "TTS service initialized: %s", _player.engine_name if _player else "unknown"
         )
     except Exception as exc:
         logger.exception("TTS init failed")
@@ -93,7 +93,7 @@ def health():
                 "detail": _init_error}
     return {
         "status": "ok" if not _player.disabled else "disabled",
-        "engine": getattr(_player, "engine_name", "unknown"),
+        "engine": _player.engine_name if _player else "unknown",
     }
 
 
@@ -117,7 +117,7 @@ def synthesize(req: SynthesizeRequest):
     return SynthesizeResponse(
         audio_b64=base64.b64encode(np.ascontiguousarray(pcm).tobytes()).decode(),
         sample_rate=rate,
-        engine=getattr(_player, "engine_name", ""),
+        engine=_player.engine_name if _player else "",
         elapsed_ms=int((time.perf_counter() - started) * 1000),
         cached=cached,
     )
@@ -143,7 +143,7 @@ def reload_model():
         _player = tts.build_tts_player(cfg, probe=False)
         return {
             "status": "reloaded",
-            "engine": getattr(_player, "engine_name", "unknown"),
+            "engine": _player.engine_name if _player else "unknown",
         }
     except Exception as exc:
         logger.exception("reload failed")

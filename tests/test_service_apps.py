@@ -30,8 +30,16 @@ def test_rag_retrieve_forwards_memory_ctx(monkeypatch):
             captured["topics"] = memory.last_topics()
             captured["followup"] = memory.looks_like_followup(query)
             captured["seen"] = memory.recently_seen_chunk_ids()
-            result = type("R", (), {"docs": [], "query_used": query,
-                                    "elapsed_s": 0.001})()
+            result = type(
+                "R",
+                (),
+                {
+                    "docs": [],
+                    "query_used": query,
+                    "elapsed_s": 0.001,
+                    "best_sim": 0.83,
+                },
+            )()
             result.docs = [
                 RetrievedDoc(chunk_id="c1", path="p", text="t", score=0.9)
             ]
@@ -55,6 +63,7 @@ def test_rag_retrieve_forwards_memory_ctx(monkeypatch):
     assert resp.status_code == 200
     body = resp.json()
     assert body["docs"][0]["chunk_id"] == "c1"
+    assert body["best_sim"] == 0.83
     assert captured["topics"] == "đèn ông sao"
     assert captured["followup"] is True
     assert captured["seen"] == {"c7"}

@@ -172,10 +172,10 @@ class GeminiBackend:
             if usage is not None:
                 logger.info(
                     "llm tokens: total=%s input=%s output=%s cached=%s",
-                    getattr(usage, "total_token_count", "?"),
-                    getattr(usage, "prompt_token_count", "?"),
-                    getattr(usage, "candidates_token_count", "?"),
-                    getattr(usage, "cached_content_token_count", 0),
+                    usage.total_token_count,
+                    usage.prompt_token_count,
+                    usage.candidates_token_count,
+                    usage.cached_content_token_count,
                 )
 
     def complete(

@@ -170,6 +170,7 @@ class RemoteRetriever:
             logger.warning("retrieve failed (%s) - degrading to no docs", exc)
             return RetrievalResult(query_used=query)
         result = RetrievalResult(query_used=data.get("query_used", query))
+        result.best_sim = float(data.get("best_sim") or 0.0)
         from rag.retriever import RetrievedDoc
 
         result.docs = [

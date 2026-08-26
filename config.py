@@ -161,6 +161,9 @@ class Config:
     # playback - the audible mid-reply gap. 2 workers halve worst-case waits;
     # each extra worker costs CPU shared with ASR/LLM.
     tts_synth_workers: int = _env_int("TTS_SYNTH_WORKERS", 2)
+    # [TUNE] max chars per TTS chunk. Oversized sentences synthesize for
+    # ~RTF x their playtime and starve playback; ~110 chars ≈ 7-8s audio.
+    tts_max_chunk_chars: int = _env_int("TTS_MAX_CHUNK_CHARS", 110)
     # Keep playback device open across visitor gaps; reopen costs ~50-100ms.
     tts_idle_close_s: float = _env_float("TTS_IDLE_CLOSE_S", 300.0)
     # [TUNE] fillers spoken while the LLM is slow; pipe-separated in env.

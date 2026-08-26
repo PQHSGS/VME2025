@@ -113,6 +113,8 @@ class TTSPlayer:
         self.disabled = not cfg.tts_enabled
         self._speaking = threading.Event()
         self._out_stream = None
+        self._idle_since: float | None = None
+        self._last_play_end = 0.0
         self._threads: list[threading.Thread] = []
         # Sentence bookkeeping for barge-in fidelity: what was submitted vs
         # what the visitor actually heard (playback started). Entries are
@@ -372,7 +374,7 @@ class TTSPlayer:
                 continue
             pcm, sr = item
             now = time.monotonic()
-            gap_s = now - getattr(self, "_last_play_end", now)
+            gap_s = now - self._last_play_end
             if gap_s > 0.5:
                 logger.info("tts: %.2fs audible gap before next sentence", gap_s)
             with self._book_lock:
@@ -403,7 +405,7 @@ class TTSPlayer:
         # shorter than this. Tunable via TTS_IDLE_CLOSE_S.
         timeout_s = float(self.cfg.tts_idle_close_s)
         if self._out_stream is not None and not self.busy:
-            self._idle_since = getattr(self, "_idle_since", None) or time.time()
+            self._idle_since = self._idle_since or time.time()
             if time.time() - self._idle_since > timeout_s:
                 self._close_output()
                 self._idle_since = None

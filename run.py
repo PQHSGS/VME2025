@@ -51,7 +51,7 @@ def build_components(cfg, args):
 
     memory_manager = MemoryManager(cfg)
 
-    if getattr(args, "microservice", False):
+    if args.microservice:
         # Same ConversationOrchestrator, remote component stand-ins. Heavy
         # state (embedder/index/TTS weights) lives in the services and
         # survives controller restarts; only edited components reload.
@@ -207,7 +207,7 @@ def health_report(orch) -> int:
     if orch.tts is None:
         lines.append(("tts", "disabled (--no-tts)"))
     else:
-        engine = getattr(orch.tts, "engine_name", "edge-tts")
+        engine = orch.tts.engine_name
         lines.append(
             (
                 "tts",

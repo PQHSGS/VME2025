@@ -66,6 +66,7 @@ class RetrieveResponse(BaseModel):
     docs: list[RetrievedDoc]
     query_used: str
     elapsed_ms: int
+    best_sim: float = 0.0
 
 
 class SituationRequest(BaseModel):
@@ -114,7 +115,13 @@ def _init_rag():
         _retriever = Retriever(cfg, _embedder)
         _retriever.load()
         if _retriever.ready:
-            _retriever.warm_vectors()
+            # Blocking warm: the whole-KB encode (~60s CPU) lands here, at
+            # boot - never concurrently with a visitor's query (OMP
+            # serializes torch parallel regions process-wide). The sync
+            # single encode below is then instant and also proves the
+            # model is truly loadable before /health reports ok.
+            _retriever.warm_vectors(background=False)
+        _embedder.encode("khởi động hệ thống")
         _situations = SituationMatcher(cfg, _embedder)
         _situations.load()
         logger.info(
@@ -173,6 +180,7 @@ def retrieve(req: RetrieveRequest):
         docs=docs,
         query_used=result.query_used,
         elapsed_ms=int(result.elapsed_s * 1000),
+        best_sim=result.best_sim,
     )
 
 
