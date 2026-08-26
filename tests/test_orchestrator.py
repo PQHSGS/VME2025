@@ -167,3 +167,20 @@ def test_summarize_thread_joined_on_shutdown():
     thread = orch._maybe_summarize(mem)
     if thread is not None:  # gate may skip; either is valid
         orch.join_background_work(timeout=2)
+
+
+def test_llm_ttft_timeout_triggers_fallback():
+    import time
+
+    class StallingBackend:
+        name = "stalling"
+
+        def stream(self, *args, **kwargs):
+            time.sleep(1.0)
+            yield "Quá muộn rồi"
+
+    orch, tts = build(llm=StallingBackend())
+    orch.cfg.llm_hard_deadline_s = 0.2  # force tight timeout
+    reply = orch.process_text("hỏi một câu")
+    assert reply == orch.cfg.fallback_reply
+    assert orch.llm_failures.count == 1

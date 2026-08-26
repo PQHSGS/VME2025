@@ -15,6 +15,7 @@ with mock ASR/LLM/TTS.
 from __future__ import annotations
 
 import logging
+import queue
 import random
 import threading
 import time
@@ -453,7 +454,47 @@ class ConversationOrchestrator:
             filler_timer.daemon = True
             filler_timer.start()
 
-            for chunk in stream:
+            # Active 6s TTFT timeout: unblocks stuck socket reads if token #1 stalls
+            chunk_queue: queue.Queue = queue.Queue()
+            _STREAM_DONE = object()
+            stream_err: list[Exception] = []
+
+            def read_stream():
+                try:
+                    for chunk in stream:
+                        chunk_queue.put(chunk)
+                except Exception as exc:
+                    stream_err.append(exc)
+                finally:
+                    chunk_queue.put(_STREAM_DONE)
+
+            reader_thread = threading.Thread(
+                target=read_stream, name="llm-stream-reader", daemon=True
+            )
+            reader_thread.start()
+
+            ttft_timeout = min(6.0, self.cfg.llm_hard_deadline_s)
+
+            while True:
+                remaining_deadline = max(0.01, self.cfg.llm_hard_deadline_s - deadline.elapsed)
+                wait_time = ttft_timeout if not got_first_token else remaining_deadline
+                try:
+                    item = chunk_queue.get(timeout=wait_time)
+                except queue.Empty:
+                    if not got_first_token:
+                        logger.warning("LLM TTFT timeout after %.1fs - aborting stream", ttft_timeout)
+                        raise TimeoutError(f"LLM TTFT exceeded {ttft_timeout}s")
+                    else:
+                        logger.warning("LLM hard deadline hit (%.2fs)", deadline.elapsed)
+                        self._turn_truncated = True
+                        break
+
+                if item is _STREAM_DONE:
+                    if stream_err:
+                        raise stream_err[0]
+                    break
+
+                chunk = item
                 if got_first_token is False:
                     got_first_token = True
                     if filler_timer:
@@ -462,10 +503,12 @@ class ConversationOrchestrator:
                         trace.mark("llm_ttft")
                         trace.set(ttft_s=round(deadline.elapsed, 3))
                     logger.info("first token after %.2fs", deadline.elapsed)
+
                 for sentence in splitter.push(chunk):
                     if self.tts:
                         self.tts.submit(sentence)
                     parts.append(sentence)
+
                 if deadline.expired and len(parts) >= 1:
                     logger.warning("LLM hard deadline hit (%.2fs)", deadline.elapsed)
                     self._turn_truncated = True
@@ -474,6 +517,7 @@ class ConversationOrchestrator:
                     logger.info("generation interrupted by barge-in")
                     self._turn_truncated = True
                     break
+
             tail = splitter.flush()
             for sentence in tail:
                 if self.tts:
