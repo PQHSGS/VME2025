@@ -276,11 +276,11 @@ class GeminiBackend:
         self.tool_skipped = True
         try:
             contents_running = payload
-            # Up to 3 tool rounds. ANY mode (when forced) applies to the
-            # FIRST leg only: constraining later legs to function-calling
-            # makes a final text answer structurally impossible - every
-            # leg would emit another fc and STOP.
-            for _leg in range(3):
+            # Max 2 rounds (initial + one refine): each round costs 3-5s,
+            # and a kiosk answer rarely needs iterative search depth. ANY
+            # mode applies to leg 1 only - constraining later legs to
+            # function-calling makes a text answer structurally impossible.
+            for _leg in range(2):
                 leg_config = self._config(
                     temperature,
                     max_tokens,

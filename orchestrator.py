@@ -67,7 +67,6 @@ class ConversationOrchestrator:
         self._parked_docs = {"sim": 0.0}  # last turn's best evidence (tool mode)
         self._turn_tool_events: list[dict] = []  # rich per-turn search events
         self._summarizer_threads: list[threading.Thread] = []
-        self._vectors_warmed = threading.Event()
         self._barge_in = threading.Event()
         from telemetry import Tracer, ConversationLogger
 
@@ -90,9 +89,13 @@ class ConversationOrchestrator:
         started = time.perf_counter()
         if self.retriever is not None:
             self.retriever.load()
-            if self.retriever.ready and not self._vectors_warmed.is_set():
-                self._vectors_warmed.set()
-                self.retriever.warm_vectors()
+            # Only the local retriever warms here; in microservice mode the
+            # RAG service blocks on its own whole-KB warm before reporting
+            # ready - double-warming would just contend for the CPU.
+            from rag.retriever import Retriever
+
+            if isinstance(self.retriever, Retriever) and self.retriever.ready:
+                self.retriever.warm_vectors(background=False)
         # Situations are independent of the FAISS index: a missing index must
         # not silently disable the scripted fast path as well.
         if self.situations is not None and not self.situations.rows:
@@ -357,10 +360,6 @@ class ConversationOrchestrator:
                     "best_sim": round(result.best_sim, 3),
                 }
             )
-            if trace is not None:
-                trace.set(
-                    docs=len(result.docs), best_sim=round(result.best_sim, 3)
-                )
             logger.info(
                 "tool search %r -> %d docs (best_sim=%.3f)",
                 query[:60], len(result.docs), result.best_sim,
@@ -459,20 +458,25 @@ class ConversationOrchestrator:
                 for e in getattr(self.llm, "last_tool_events", [])
             ]
             skipped = bool(getattr(self.llm, "tool_skipped", True))
-            if any(int(e.get("docs", 0) or 0) > 0 for e in events):
-                path = "llm"
-            if trace is not None:
-                if events:
+            if events:
+                # Single source of truth for docs/best_sim on tool turns
+                # (feeds conv_log's doc_count too).
+                best = max(int(e.get("docs", 0) or 0) for e in events)
+                sim = max(float(e.get("best_sim", 0.0)) for e in events)
+                if best > 0:
+                    path = "llm"
+                if trace is not None:
                     trace.mark("tool-search")
-                    trace.set(tool_events=events)
-                if skipped:
-                    trace.mark("tool-skip")
-                    trace.set(parked_sim=round(self._parked_sim(), 3))
+                    trace.set(docs=best, best_sim=round(sim, 3),
+                              tool_events=events)
             if skipped:
                 logger.info(
                     "agent skipped search (parked_sim=%.3f) - answering from thread",
                     self._parked_sim(),
                 )
+                if trace is not None:
+                    trace.mark("tool-skip")
+                    trace.set(parked_sim=round(self._parked_sim(), 3))
             sim_now = max(
                 [float(e.get("best_sim", 0.0)) for e in events] + [0.0]
             )
