@@ -150,21 +150,6 @@ class Retriever:
         return vec
 
     # ------------------------------------------------------------------
-    def _embed_query(self, text: str) -> np.ndarray:
-        cached = self._embed_cache.get(text)
-        if cached is not None:
-            self._embed_cache.move_to_end(text)
-            return cached
-        vec = self.embedder.encode_query(text)
-        if len(self._embed_cache) >= self._EMBED_CACHE_MAX:
-            self._popitem_oldest()
-        self._embed_cache[text] = vec
-        return vec
-
-    def _popitem_oldest(self):
-        self._embed_cache.popitem(last=False)
-
-    # ------------------------------------------------------------------
     def _effective_query(self, query: str, memory=None) -> str:
         """Enrich very short pronoun follow-ups with recent topics."""
         words = query.strip().split()
@@ -200,6 +185,7 @@ class Retriever:
             return result
 
         effective_query = self._effective_query(query, memory)
+        result.query_used = effective_query
         if q_vec is None or effective_query != query:
             q_vec = self._embed_query(effective_query)
 

@@ -129,8 +129,9 @@ class Config:
     # Filler spoken if no first token by this delay; lower = less dead air.
     ttft_filler_after_s: float = _env_float("TTFT_FILLER_AFTER_S", 1.8)
     # Release the opening clause at the first comma (e.g. "Đúng, ...").
+    # Default False to prevent awkward mid-reply silence on CPU engines.
     ttfa_first_clause: bool = field(
-        default_factory=lambda: _env_bool("TTFA_FIRST_CLAUSE", True)
+        default_factory=lambda: _env_bool("TTFA_FIRST_CLAUSE", False)
     )
     # Hard deadline: abort generation past this; partial reply is spoken.
     llm_hard_deadline_s: float = _env_float("LLM_HARD_DEADLINE_S", 15.0)

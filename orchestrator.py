@@ -369,22 +369,28 @@ class ConversationOrchestrator:
             # Speculative hit: same intent as the pre-run query -> free.
             spec = speculative.get("result")
             if spec is not None:
-                ratio = difflib.SequenceMatcher(
-                    None,
-                    query.lower().strip(),
-                    spec.query_used.lower().strip(),
-                ).ratio()
-                if ratio >= 0.6:
+                q_clean = query.lower().strip()
+                spec_clean = spec.query_used.lower().strip()
+                ratio = difflib.SequenceMatcher(None, q_clean, spec_clean).ratio()
+                q_words = set(q_clean.split())
+                spec_words = set(spec_clean.split())
+                overlap = (
+                    len(q_words & spec_words) / max(1, min(len(q_words), len(spec_words)))
+                    if q_words and spec_words
+                    else 0.0
+                )
+                if ratio >= 0.6 or overlap >= 0.7:
                     logger.info(
-                        "tool search reuse (spec match %.2f): %r", ratio, query[:60]
+                        "tool search reuse (spec ratio=%.2f, overlap=%.2f): %r",
+                        ratio,
+                        overlap,
+                        query[:60],
                     )
                     result = spec
                 else:
                     with budget("tool.search", 2.0):
                         result = (
-                            self.retriever.retrieve(
-                                query, memory=memory, q_vec=q_vec
-                            )
+                            self.retriever.retrieve(query, memory=memory)
                             if self.retriever is not None
                             and self.retriever.ready
                             else None
@@ -392,7 +398,7 @@ class ConversationOrchestrator:
             else:
                 with budget("tool.search", 2.0):
                     result = (
-                        self.retriever.retrieve(query, memory=memory, q_vec=q_vec)
+                        self.retriever.retrieve(query, memory=memory)
                         if self.retriever is not None and self.retriever.ready
                         else None
                     )
@@ -526,10 +532,11 @@ class ConversationOrchestrator:
                 if trace is not None:
                     trace.mark("tool-skip")
                     trace.set(parked_sim=round(self._parked_sim(), 3))
-            sim_now = max(
-                [float(e.get("best_sim", 0.0)) for e in events] + [0.0]
-            )
-            self._parked_docs = {"sim": max(sim_now, self._parked_sim())}
+            if events:
+                sim_now = max(
+                    float(e.get("best_sim", 0.0)) for e in events
+                )
+                self._parked_docs = {"sim": sim_now}
 
         if (
             self.answer_cache

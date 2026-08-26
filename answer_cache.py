@@ -107,11 +107,12 @@ class AnswerCache:
             if threshold <= 0 or not self._entries:
                 return None
             vec = q_vec if q_vec is not None else self.embedder.encode_query(query)
-            best_key, best_sim = None, 0.0
-            for ekey, entry in self._entries.items():
-                sim = float(entry["vec"] @ vec)
-                if sim > best_sim:
-                    best_key, best_sim = ekey, sim
+            keys = list(self._entries.keys())
+            mat = np.stack([self._entries[k]["vec"] for k in keys])
+            sims = mat @ vec
+            best_idx = int(np.argmax(sims))
+            best_sim = float(sims[best_idx])
+            best_key = keys[best_idx]
             if best_sim >= threshold:
                 self._entries.move_to_end(best_key)
                 entry = self._entries[best_key]

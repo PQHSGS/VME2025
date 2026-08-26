@@ -16,10 +16,12 @@ class RecordingRetriever:
 
     def __init__(self):
         self.calls: list[str] = []
+        self.q_vecs: list = []
         self.docs = []
 
     def retrieve(self, query, memory=None, exclude_ids=None, q_vec=None):
         self.calls.append(query)
+        self.q_vecs.append(q_vec)
 
         class R:
             query_used = query
@@ -134,3 +136,19 @@ def test_system_prompt_includes_policy_only_in_tool_mode():
     tool = load_system_prompt(tool_mode=True)
     assert "CÔNG CỤ TRA CỨU" in tool
     assert "search_kb" in tool
+
+
+def test_tool_search_does_not_pass_stale_q_vec():
+    retriever = RecordingRetriever()
+    orch, _ = build_tool_orch(mode="grounded", retriever=retriever)
+    orch.process_text("có ạ")
+    # Search triggered by tool executor must not pass the user_text's q_vec
+    # (only speculative pre-fetch on user_text receives q_vec if any).
+    tool_calls = [
+        (c, qv) for c, qv in zip(retriever.calls, retriever.q_vecs)
+        if c == MockBackend.search_query
+    ]
+    assert len(tool_calls) >= 1
+    for _, qv in tool_calls:
+        assert qv is None
+
