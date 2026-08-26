@@ -74,7 +74,10 @@ existing tests.
 - Naming: "ASR" = the speech-to-text component/service; "stt" = the injected
   transcriber role in the orchestrator. Keep Remote* clients attribute-for-
   attribute compatible with their local twins.
-- Never edit UTF-8 files via PowerShell Get-Content/Set-Content — PS5.1
+- `getattr(obj, "attr", default)` only when the attribute is genuinely
+  optional (platform-specific constants, duck-typed test fakes). If the
+  attribute provably exists, access it directly.
+- Never edit UTF-8 files via PowerShell Get-Content/Set-Content - PS5.1
   defaults to ANSI and silently mojibakes Vietnamese strings. Use the Edit
   tool or Python io.
 - New config goes through `_env_*` helpers in `config.py` +
@@ -89,9 +92,10 @@ existing tests.
 | `llm.py` | backends gemini/mock; `select_backend` fails loud |
 | `asr.py` | gipformer-65M int8 via sherpa-onnx (default); WhisperSTT legacy fallback |
 | `asr_correct.py` | zero-latency domain-homophone post-filter; venue overrides via `data/asr_homophones.csv` |
-| `tts.py` | engine chain VieNeu → edge-tts → text-only; queue/cache/barge-in bookkeeping |
+| `tts.py` | engine chain VieNeu → edge-tts → text-only; N synth workers + order-preserving sequencer; cache/barge-in bookkeeping; >0.5s audible-gap logging |
 | `tts_vienneu.py` | VieNeu-TTS v3 Turbo wrapper (`vieneu` SDK) |
-| `audio.py` | push-to-talk capture (ENTER toggles record/send); debounced ENTER watcher |
+| `sentences.py` | streaming splitter; comma-first soft-cuts keep every TTS chunk ≤ `TTS_MAX_CHUNK_CHARS` so synthesis hides behind playback |
+| `audio.py` | push-to-talk capture (ENTER toggles record/send); GetAsyncKeyState edge-detected ENTER watcher |
 | `resilience.py` | Deadline, budget(), FailureTracker (LLM breaker) |
 | `telemetry.py` | per-turn JSONL spans (`traces.jsonl`) + conversation transcript (`conversations.jsonl`) |
 
@@ -136,6 +140,16 @@ existing tests.
 - Targets both CPU-only boxes (ONNX/int8 paths) and small NVIDIA GPUs (4–7GB).
 - gipformer int8 ONNX files: `python scripts/fetch_gipformer.py`
   (HF: g-group-ai-lab/gipformer-65M-rnnt, ~70MB total).
+- Boot takes ~2min: RAG init blocks on a whole-KB vector warm (~60s CPU,
+  batched ×64) plus one sync embedder encode. Do NOT move that warming to a
+  background thread — OMP serializes torch parallel regions process-wide, so
+  concurrent queries wait behind entire batches (measured 68s first-turn
+  retrieval). After `services ready`, give the fresh fleet ~3min to settle
+  (model loads across ASR/TTS/LLM processes starve the CPU at first);
+  retrieval drops from tens-of-seconds to ~330ms once warm.
+- Gemini implicit caching needs ≥~4k shared prefix tokens; our ~1.9k-token
+  prompt reports `cached=None` (see `llm tokens:` lines in the LLM service
+  log). Revisit explicit caching only if the prompt grows past the threshold.
 - Gemini transport: HTTP/2 enabled via `client_args`; `google-genai` pinned
   ≥1.46 (concurrency latency fix). httpx keepalive expires after ~5s idle, so
   the first turn after a long gap pays TCP+TLS again (~200ms) — accepted.
@@ -155,6 +169,7 @@ read `logs/traces.jsonl`.
 | `CONTEXT_CHAR_BUDGET` / `RECENT_EXCHANGES` | `prompt_chars` field in traces vs `llm_ttft` | TTFT creeping up → trim budget; answers missing context → grow |
 | `SITUATIONS_THRESHOLD` | situation hits logged at match time | misses on obvious scripted Qs → lower |
 | `TTS_IDLE_CLOSE_S` | first-word delay after long gaps | audio device contention with other apps → shorten |
+| `TTS_SYNTH_WORKERS` / `TTS_MAX_CHUNK_CHARS` | `tts: X.XXs audible gap` lines in service log | gaps between sentences → more workers or smaller chunks; CPU starved during replies → fewer workers |
 
 ## Reference material
 

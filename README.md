@@ -38,7 +38,7 @@ Design goals, in order:
 | `sentences.py` | Vietnamese-aware incremental splitter (first-clause early release) |
 | `resilience.py` | deadlines, soft budgets, failure tracker (LLM circuit breaker) |
 | `telemetry.py` | one JSONL span per turn → `logs/traces.jsonl`; transcripts → `conversations.jsonl` |
-| `audio.py` | PTT capture (ENTER starts, ENTER sends); debounced ENTER watcher |
+| `audio.py` | PTT capture (ENTER starts, ENTER sends); edge-detected ENTER watcher |
 | `services/` | microservice layer: FastAPI apps on :8001-8004, Remote* clients, process manager |
 
 ## Setup
@@ -114,8 +114,11 @@ before embedding; barge-in rewrites history to what was actually spoken.
 
 Measured on the kiosk CPU: warm VieNeu synthesis runs faster than realtime
 (`VIENEU_THREADS=4`, RTF ≈ 0.7–0.9), gipformer decode ≈ RTF 0.033, Gemini
-TTFT ≈ 1s warm. Soft budgets warn when breached: ASR ≤3s, LLM hard deadline
-15s. Failure handling:
+TTFT ≈ 1s warm. TTS streams sentence chunks through 2 parallel synthesis
+workers with an order-preserving queue; chunks are comma-split to
+`TTS_MAX_CHUNK_CHARS` so synthesis stays hidden behind playback (any >0.5s
+audible gap is logged for tuning). Soft budgets warn when breached:
+ASR ≤3s, LLM hard deadline 15s. Failure handling:
 
 - **LLM circuit breaker**: 3 consecutive backend failures open the circuit
   for `LLM_COOLDOWN_S` — turns answer instantly with the fallback reply
