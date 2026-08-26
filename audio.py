@@ -73,11 +73,14 @@ class MicRecorder:
             callback=self._callback,
         ):
             self._recording.set()
-            logger.info("recording (push-to-talk)...")
+            logger.info("ENTER pressed - recording started")
             while True:
                 time.sleep(FRAME_MS / 1000)
                 if stop_check is not None and stop_check():
-                    logger.info("operator ended the turn")
+                    logger.info(
+                        "ENTER pressed - recording stopped (%.2fs buffered)",
+                        time.perf_counter() - started,
+                    )
                     break
                 if (
                     time.perf_counter() - started
@@ -91,6 +94,9 @@ class MicRecorder:
         if trimmed.shape[0] < self.cfg.min_speech_ms / 1000 * SAMPLE_RATE:
             logger.info("captured audio too short; treating as empty")
             return np.zeros(0, dtype=np.float32)
+        logger.info(
+            "sending %.2fs of speech to ASR", trimmed.shape[0] / SAMPLE_RATE
+        )
         return trimmed
 
     def _concat_frames(self) -> np.ndarray:
