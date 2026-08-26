@@ -191,6 +191,8 @@ class ConversationOrchestrator:
             logger.exception("turn failed")
             reply = self.cfg.fallback_reply
             path = "fallback"
+            if self.tts is not None and hasattr(self.tts, "stop"):
+                self.tts.stop()
             self._queue_speech(reply)
 
         memory.add_bot_reply(reply)

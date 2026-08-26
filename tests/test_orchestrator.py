@@ -33,6 +33,9 @@ class FakeTTS:
     def close(self):
         pass
 
+    def stop(self):
+        pass
+
 
 class FakeSituations:
     ready = True
