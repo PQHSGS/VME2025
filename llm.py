@@ -154,13 +154,29 @@ class GeminiBackend:
             }
             for m in contents
         ]
-        for chunk in self._client.models.generate_content_stream(
-            model=self.model,
-            contents=payload,
-            config=self._config(temperature, max_tokens, system_instruction),  # type: ignore[arg-type]
-        ):
-            if chunk.text:
-                yield chunk.text
+        last = None
+        try:
+            for chunk in self._client.models.generate_content_stream(
+                model=self.model,
+                contents=payload,
+                config=self._config(temperature, max_tokens, system_instruction),  # type: ignore[arg-type]
+            ):
+                last = chunk
+                if chunk.text:
+                    yield chunk.text
+        finally:
+            # Token + cache-hit visibility: if cached stays 0 across turns
+            # the prompt is below the model's implicit-cache minimum and a
+            # decision about explicit caching can be made from real data.
+            usage = getattr(last, "usage_metadata", None)
+            if usage is not None:
+                logger.info(
+                    "llm tokens: total=%s input=%s output=%s cached=%s",
+                    getattr(usage, "total_token_count", "?"),
+                    getattr(usage, "prompt_token_count", "?"),
+                    getattr(usage, "candidates_token_count", "?"),
+                    getattr(usage, "cached_content_token_count", 0),
+                )
 
     def complete(
         self,
