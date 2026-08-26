@@ -58,7 +58,7 @@ class ConversationOrchestrator:
         self.stt = stt
         self.answer_cache = answer_cache  # AnswerCache | None (disabled when None)
         self.system_prompt = load_system_prompt(
-            tool_mode=cfg.retrieval_mode == "tool"
+            tool_mode=cfg.retrieval_mode in ("auto", "grounded")
         )
         self.session_id = self._new_session_id()
         self.llm_failures = FailureTracker("llm", threshold=3)
@@ -269,27 +269,51 @@ class ConversationOrchestrator:
         docs: list[dict] = []
         self._turn_truncated = False
         result = None
-        tool_mode = self.cfg.retrieval_mode == "tool"
-        if tool_mode:
-            parked = getattr(self, "_parked_docs", None) or {}
-            # Guardrail (default off): very short follow-ups right after a
-            # strong-evidence turn fall back to the pipeline path so a
-            # hesitant agent cannot drop a thread the child continued.
+        mode = self.cfg.retrieval_mode
+        agentic = mode in ("auto", "grounded")
+        speculative: dict = {"done": False, "result": None}
+
+        def speculate() -> None:
+            """Pre-run retrieval on the enriched utterance, in parallel.
+
+            If the agent's own search query turns out similar, the parked
+            result is reused (0ms); otherwise it is discarded. Purely an
+            accelerator - correctness never depends on it.
+            """
+            try:
+                if self.retriever is not None and self.retriever.ready:
+                    speculative["result"] = self.retriever.retrieve(
+                        user_text, memory=memory, q_vec=q_vec
+                    )
+            except Exception:
+                logger.debug("speculative retrieval failed", exc_info=True)
+            finally:
+                speculative["done"] = True
+
+        if agentic:
+            # Overlap search latency with leg-1 generation.
+            threading.Thread(target=speculate, name="spec-fetch", daemon=True).start()
+            # Guardrail: very short follow-ups right after strong-evidence
+            # turns take the deterministic pipeline path instead of trusting
+            # the agent's discretion.
             if (
                 self.cfg.tool_guardrail
-                and parked.get("sim", 0.0) >= self.cfg.evidence_sim_min
+                and self._parked_sim() >= self.cfg.evidence_sim_min
                 and len(user_text.split()) <= 3
             ):
                 logger.info("tool guardrail: short follow-up - pipeline fallback")
-                tool_mode = False
-        if not tool_mode:
+                agentic = False
+        if not agentic:
             if self.retriever is not None and self.retriever.ready:
-                result = self.retriever.retrieve(
-                    user_text,
-                    memory=memory,
-                    exclude_ids=set(),  # per-turn dedup handled via seen_chunks
-                    q_vec=q_vec,
-                )
+                if speculative["done"] and speculative["result"] is not None:
+                    result = speculative["result"]  # already fetched for us
+                else:
+                    result = self.retriever.retrieve(
+                        user_text,
+                        memory=memory,
+                        exclude_ids=set(),
+                        q_vec=q_vec,
+                    )
                 trace.mark("retrieval")
                 if result.docs:
                     docs = [
@@ -338,15 +362,40 @@ class ConversationOrchestrator:
 
         def tool_executor(query: str) -> str:
             """search_kb execution - local retriever or RemoteRetriever."""
+            import difflib
+
             from prompts import format_retrieved_block
 
-            with budget("tool.search", 2.0):
-                if self.retriever is not None and self.retriever.ready:
-                    result = self.retriever.retrieve(
-                        query, memory=memory, q_vec=q_vec
+            # Speculative hit: same intent as the pre-run query -> free.
+            spec = speculative.get("result")
+            if spec is not None:
+                ratio = difflib.SequenceMatcher(
+                    None,
+                    query.lower().strip(),
+                    spec.query_used.lower().strip(),
+                ).ratio()
+                if ratio >= 0.6:
+                    logger.info(
+                        "tool search reuse (spec match %.2f): %r", ratio, query[:60]
                     )
+                    result = spec
                 else:
-                    result = None
+                    with budget("tool.search", 2.0):
+                        result = (
+                            self.retriever.retrieve(
+                                query, memory=memory, q_vec=q_vec
+                            )
+                            if self.retriever is not None
+                            and self.retriever.ready
+                            else None
+                        )
+            else:
+                with budget("tool.search", 2.0):
+                    result = (
+                        self.retriever.retrieve(query, memory=memory, q_vec=q_vec)
+                        if self.retriever is not None and self.retriever.ready
+                        else None
+                    )
             if trace is not None:
                 trace.mark("tool-search")
             if result is None:
@@ -384,13 +433,13 @@ class ConversationOrchestrator:
                 # pipeline's reply-sized budget starves them into one word.
                 max_tokens=(
                     max(self.cfg.tool_max_tokens, self.cfg.llm_max_tokens)
-                    if tool_mode
+                    if agentic
                     else self.cfg.llm_max_tokens
                 ),
-                tools=tool_mode,
-                memory_ctx=self._memory_ctx(memory, user_text) if tool_mode else None,
-                tool_executor=tool_executor if tool_mode else None,
-                force_search=self.cfg.tool_force_search,
+                tools=agentic,
+                memory_ctx=self._memory_ctx(memory, user_text) if agentic else None,
+                tool_executor=tool_executor if agentic else None,
+                force_search=(mode == "grounded"),
             )
             filler_timer = threading.Timer(self.cfg.ttft_filler_after_s, speak_filler)
             filler_timer.daemon = True
@@ -448,7 +497,7 @@ class ConversationOrchestrator:
         # RemoteLLM. Updates the parked-evidence slot and audits skips.
         # Answer-cache stays pipeline-only: its self-contained check needs
         # the pre-retrieval query verdict.
-        if self.cfg.retrieval_mode == "tool":
+        if mode in ("auto", "grounded"):
             events = self._turn_tool_events or [
                 {
                     "query": str(e.get("query", ""))[:80],

@@ -348,8 +348,12 @@ class RemoteLLM:
             "memory_ctx": memory_ctx,
             "force_search": force_search,
         }
+        # Tool-mode turns can sit silent for a full two-leg round plus
+        # search (worst case tens of seconds on a settling fleet); the
+        # 30s chat budget would kill mid-stream.
+        read_s = 120.0 if tools else 30.0
         with get_client(self._transport).stream(
-            "POST", f"{self.base}/stream", json=payload, timeout=_timeout(30.0)
+            "POST", f"{self.base}/stream", json=payload, timeout=_timeout(read_s)
         ) as resp:
             if resp.status_code != 200:
                 raise RuntimeError(f"llm service returned {resp.status_code}")

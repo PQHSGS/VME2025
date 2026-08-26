@@ -94,6 +94,18 @@ def complete(req: GenerateRequest):
     return GenerateResponse(text=text, elapsed_ms=elapsed_ms)
 
 
+_rag_client = None  # lazy RemoteRetriever shared across tool-mode requests
+
+
+def _get_rag_client():
+    global _rag_client
+    if _rag_client is None:
+        from services.clients import RemoteRetriever
+
+        _rag_client = RemoteRetriever(cfg)
+    return _rag_client
+
+
 @app.post("/stream")
 def stream(req: GenerateRequest):
     if _backend is None:
@@ -108,27 +120,33 @@ def stream(req: GenerateRequest):
         # Rich tool events ride inside the done event so the orchestrator
         # can trace docs/best_sim without another round-trip.
         tool_events: list[dict] = []
-        retriever_ready = True
+        rag_ready = True
 
         if req.tools:
-            from services.clients import RemoteRetriever
-
-            rag = RemoteRetriever(cfg)
-            retriever_ready = rag.ready
+            rag_ready = _get_rag_client().ready
+            if not rag_ready:
+                logger.warning("tool mode: RAG not ready - steering, not searching")
 
         def executor(query: str) -> str:
             from prompts import format_retrieved_block
 
-            nonlocal retriever_ready
-            if not retriever_ready:
-                result_docs, best_sim = [], 0.0
-            else:
-                result = rag.retrieve(query, raw_memory_ctx=memory_ctx)
-                result_docs = [
-                    {"path": d.path, "text": d.text, "score": d.score}
-                    for d in result.docs
-                ]
-                best_sim = result.best_sim
+            nonlocal rag_ready
+            # Fail FAST while the fleet settles: a blocking retrieve against
+            # a warming embedder would starve the SSE read window.
+            if not rag_ready or not _get_rag_client().ready:
+                return (
+                    "KHÔNG tìm thấy tài liệu phù hợp. Hãy trả lời em nhí "
+                    "bằng hiểu biết chung của Ông một cách thân thiện, và "
+                    "không bịa chi tiết về bảo tàng."
+                )
+            result = _get_rag_client().retrieve(
+                query, raw_memory_ctx=memory_ctx
+            )
+            result_docs = [
+                {"path": d.path, "text": d.text, "score": d.score}
+                for d in result.docs
+            ]
+            best_sim = result.best_sim
             logger.info(
                 "tool search %r -> %d docs (best_sim=%.3f)",
                 query[:60],

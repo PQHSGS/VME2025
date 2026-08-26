@@ -35,7 +35,7 @@ def build_tool_orch(**overrides):
 
     cfg = Config()
     cfg.telemetry_enabled = False
-    cfg.retrieval_mode = overrides.get("mode", "tool")
+    cfg.retrieval_mode = overrides.get("mode", "auto")
     cfg.tool_guardrail = overrides.get("guardrail", False)
     retriever = overrides.get("retriever")
     orch = ConversationOrchestrator(
@@ -85,6 +85,28 @@ def test_guardrail_falls_back_to_pipeline_on_short_followup():
     orch._parked_docs = {"sim": 0.9}  # strong prior evidence
     orch.process_text("có ạ")  # short follow-up triggers the guardrail
     assert len(retriever.calls) == 1  # pipeline retrieval ran instead
+
+
+def test_auto_mode_gives_agent_discretion_grounded_forces():
+    """auto → force_search False; grounded → ANY-forced first leg."""
+    retriever = RecordingRetriever()
+    orch, backend = build_tool_orch(mode="auto", retriever=retriever)
+    orch.process_text("đèn ông sao làm bằng gì?")
+    assert backend.last_stream_kwargs["force_search"] is False
+    assert backend.last_stream_kwargs["tools"] is True
+
+    orch2, backend2 = build_tool_orch(mode="grounded", retriever=retriever)
+    orch2.process_text("chào ông ạ")  # even chitchat is forced to search
+    assert backend2.last_stream_kwargs["force_search"] is True
+    assert len(retriever.calls) >= 1  # forced search executed
+
+
+def test_legacy_tool_value_maps_to_grounded():
+    from config import normalize_retrieval_mode
+
+    assert normalize_retrieval_mode("tool") == "grounded"
+    assert normalize_retrieval_mode("auto") == "auto"
+    assert normalize_retrieval_mode("pipeline") == "pipeline"
 
 
 def path_is_nodocs(orch) -> bool:

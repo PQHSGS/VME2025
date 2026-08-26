@@ -82,6 +82,11 @@ def _env_bool(key: str, default: bool) -> bool:
     return raw.strip().lower() in ("1", "true", "yes", "on")
 
 
+def normalize_retrieval_mode(value: str) -> str:
+    """Map legacy names onto the current pipeline|auto|grounded set."""
+    return {"tool": "grounded"}.get(value, value)
+
+
 @dataclass
 class Config:
     # ==================================================================
@@ -93,26 +98,29 @@ class Config:
     # Gemini 3.x: "minimal"=fastest TTFT, "low"|"medium"|"high"=slower+smarter.
     gemini_thinking_level: str | None = _env("GEMINI_THINKING_LEVEL", "minimal")
 
-    # Retrieval decision owner: pipeline = always pre-retrieve behind the
-    # evidence bar (today's behavior); tool = Gemini decides via search_kb
-    # and writes its own history-aware query. Tool turns pay one extra
-    # model leg; chat turns skip retrieval entirely.
-    retrieval_mode: str = _env_str("RETRIEVAL_MODE", "pipeline")  # pipeline | tool
+    # Retrieval decision owner:
+    #   pipeline  always pre-retrieve behind the evidence bar (fastest
+    #             knowledge turns ~2s; intent guessed by heuristics)
+    #   auto      FULL agent authority: Gemini answers directly or calls
+    #             search_kb with its own history-aware query (chat turns
+    #             stream immediately; knowledge turns pay two legs)
+    #   grounded  agent must search every turn (FunctionCallingConfig ANY
+    #             on leg 1); slowest chitchat, zero skip risk
+    # Legacy value "tool" is treated as "grounded".
+    retrieval_mode: str = _env_str("RETRIEVAL_MODE", "auto")  # pipeline|auto|grounded
     # Trust-agent policy: when the agent skips searching despite parked
     # prior-turn evidence above the bar, log it (always) - and when on,
     # ALSO force the pipeline path for very short follow-up turns so a
     # hesitant agent cannot drop context a child explicitly continued.
+    # Applies to auto and grounded modes.
     tool_guardrail: bool = field(default_factory=lambda: _env_bool("TOOL_GUARDRAIL", False))
-    # Force search_kb on EVERY turn (FunctionCallingConfig ANY). Flash-lite
-    # sometimes skips the tool even on clear knowledge questions; forcing
-    # trades chat-turn speed for guaranteed grounding. Default: on - a
-    # hallucinated museum fact costs more than 0.3s of search.
-    tool_force_search: bool = field(
-        default_factory=lambda: _env_bool("TOOL_FORCE_SEARCH", True)
-    )
     # Tool turns carry thought signatures + two legs; the pipeline's small
     # reply budget starves them (measured: 220 tokens → one-word answers).
     tool_max_tokens: int = _env_int("TOOL_MAX_TOKENS", 1024)
+
+    def __post_init__(self):
+        self.retrieval_mode = normalize_retrieval_mode(self.retrieval_mode)
+
     # Optional reverse proxy / regional gateway (AI Studio is global-only).
     gemini_base_url: str = _env_str("GEMINI_BASE_URL", "")
     # [TUNE] temperature and max tokens affect answer style + latency.

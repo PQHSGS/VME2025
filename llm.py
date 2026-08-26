@@ -110,6 +110,7 @@ class MockBackend:
     def __init__(self):
         self.last_tool_events: list[dict] = []
         self.tool_skipped = True
+        self.last_stream_kwargs: dict = {}
 
     def stream(
         self,
@@ -121,6 +122,11 @@ class MockBackend:
         tool_executor=None,
         force_search: bool = True,
     ) -> Iterator[str]:
+        self.last_stream_kwargs = {
+            "tools": tools,
+            "memory_ctx": memory_ctx,
+            "force_search": force_search,
+        }
         self.last_tool_events = []
         fired = tools and not self.tool_skips
         if fired:
@@ -274,85 +280,67 @@ class GeminiBackend:
         state: dict = {"last": None}
         self.last_tool_events: list[dict] = []
         self.tool_skipped = True
+        decision_config = self._config(
+            temperature, max_tokens, system_instruction, tools, force_search
+        )
         try:
-            contents_running = payload
-            # Max 2 rounds (initial + one refine): each round costs 3-5s,
-            # and a kiosk answer rarely needs iterative search depth. ANY
-            # mode applies to leg 1 only - constraining later legs to
-            # function-calling makes a text answer structurally impossible.
-            for _leg in range(2):
-                leg_config = self._config(
-                    temperature,
-                    max_tokens,
-                    system_instruction,
-                    tools,
-                    force_search and _leg == 0,
-                )
-                parts: list = []
-                got_text = False
-                for token in self._consume_stream(
-                    self._client.models.generate_content_stream(
-                        model=self.model,
-                        contents=contents_running,
-                        config=leg_config,
-                    ),
-                    parts,
-                    state,
-                ):
-                    got_text = True
-                    yield token
-
-                last_chunk = state.get("last")
-                finish = None
-                try:
-                    finish = str(
-                        last_chunk.candidates[0].finish_reason
-                    )
-                except Exception:
-                    pass
-                n_text = sum(1 for p in parts if p.text)
-                n_fc = sum(1 for p in parts if p.function_call is not None)
-                logger.info(
-                    "leg %d: parts=%d text=%d fc=%d got_text=%s finish=%s",
-                    _leg + 1, len(parts), n_text, n_fc, got_text, finish,
-                )
-
-                fc_parts = [p for p in parts if p.function_call is not None]
-                if not (tools and tool_executor is not None and fc_parts):
-                    break  # answered (or nothing to execute) - done
-
-                responses: list[dict] = []
-                for fc in (p.function_call for p in fc_parts):
-                    query = str((fc.args or {}).get("query", ""))[:200]
-                    docs_text = tool_executor(query)
-                    if not docs_text:
-                        # Empty results must STEER, not invite another call.
-                        docs_text = (
-                            "KHÔNG tìm thấy tài liệu phù hợp. Hãy trả lời em "
-                            "nhí bằng hiểu biết chung của Ông một cách thân "
-                            "thiện, và không bịa chi tiết về bảo tàng."
-                        )
-                    self.last_tool_events.append({"query": query})
-                    self.tool_skipped = False
-                    responses.append(
-                        {
-                            "function_response": {
-                                "name": fc.name or KB_TOOL_NAME,
-                                "response": {"result": docs_text},
-                            }
-                        }
-                    )
-                contents_running = contents_running + [
-                    {"role": "model", "parts": parts},
-                    {"role": "user", "parts": responses},
-                ]
-                logger.debug(
-                    "tool leg %d executed %d search(es)", _leg + 1, len(responses)
-                )
-            if parts and not got_text and not any(
-                p.function_call is not None for p in parts
+            # Phase 1 - decision leg (optionally forced via ANY mode).
+            parts: list[dict] = []
+            for token in self._consume_stream(
+                self._client.models.generate_content_stream(
+                    model=self.model, contents=payload, config=decision_config
+                ),
+                parts,
+                state,
             ):
-                logger.warning("final leg produced no text - check tool config")
+                yield token
+
+            fc_parts = [p for p in parts if p.function_call is not None]
+            if not (tools and tool_executor is not None and fc_parts):
+                return  # answered directly (or nothing to execute)
+
+            # Phase 2 - execute every requested search...
+            responses: list[dict] = []
+            for fc in (p.function_call for p in fc_parts):
+                query = str((fc.args or {}).get("query", ""))[:200]
+                docs_text = tool_executor(query)
+                if not docs_text:
+                    # Empty results must STEER, not invite another call.
+                    docs_text = (
+                        "KHÔNG tìm thấy tài liệu phù hợp. Hãy trả lời em nhí "
+                        "bằng hiểu biết chung của Ông một cách thân thiện, và "
+                        "không bịa chi tiết về bảo tàng."
+                    )
+                self.last_tool_events.append({"query": query})
+                self.tool_skipped = False
+                responses.append(
+                    {
+                        "function_response": {
+                            "name": fc.name or KB_TOOL_NAME,
+                            "response": {"result": docs_text},
+                        }
+                    }
+                )
+            contents_running = payload + [
+                {"role": "model", "parts": parts},
+                {"role": "user", "parts": responses},
+            ]
+
+            # Phase 3 - FINAL answer leg with tools STRIPPED. Flash-lite
+            # sometimes re-invokes the tool when tools remain visible;
+            # removing them makes a text answer structurally guaranteed.
+            final_config = self._config(
+                temperature, max_tokens, system_instruction, tools=False
+            )
+            yield from self._consume_stream(
+                self._client.models.generate_content_stream(
+                    model=self.model,
+                    contents=contents_running,
+                    config=final_config,
+                ),
+                [],
+                state,
+            )
         finally:
             # Token + cache-hit visibility: if cached stays 0 across turns
             # the prompt is below the model's implicit-cache minimum and a
