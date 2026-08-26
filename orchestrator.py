@@ -473,7 +473,11 @@ class ConversationOrchestrator:
             )
             reader_thread.start()
 
-            ttft_timeout = min(6.0, self.cfg.llm_hard_deadline_s)
+            ttft_timeout = (
+                self.cfg.llm_hard_deadline_s
+                if agentic
+                else min(8.0, self.cfg.llm_hard_deadline_s)
+            )
 
             while True:
                 remaining_deadline = max(0.01, self.cfg.llm_hard_deadline_s - deadline.elapsed)
