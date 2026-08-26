@@ -156,6 +156,11 @@ class Config:
     tts_rate: str = _env_str("TTS_RATE", "+10%")
     tts_cache_size: int = _env_int("TTS_CACHE_SIZE", 256)
     tts_max_consecutive_failures: int = _env_int("TTS_MAX_CONSECUTIVE_FAILURES", 3)
+    # [TUNE] parallel synth workers. VieNeu RTF ~0.88 means one worker can't
+    # hide a long sentence's synth time behind the previous sentence's
+    # playback - the audible mid-reply gap. 2 workers halve worst-case waits;
+    # each extra worker costs CPU shared with ASR/LLM.
+    tts_synth_workers: int = _env_int("TTS_SYNTH_WORKERS", 2)
     # Keep playback device open across visitor gaps; reopen costs ~50-100ms.
     tts_idle_close_s: float = _env_float("TTS_IDLE_CLOSE_S", 300.0)
     # [TUNE] fillers spoken while the LLM is slow; pipe-separated in env.

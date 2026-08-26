@@ -5,8 +5,8 @@ Capture model (operator-friendly for a museum floor):
   * operator presses ENTER again -> recording stops, turn is sent
   * hard cap at ``max_utterance_seconds`` as a safety net
 
-Keyboard polling uses msvcrt on Windows; a no-op fallback keeps imports safe
-on other platforms.
+Keyboard input uses GetAsyncKeyState edge detection on Windows; the watcher
+degrades gracefully (no key events) on other platforms.
 """
 
 from __future__ import annotations
@@ -126,10 +126,14 @@ def trim_silence(
 
 # ----------------------------------------------------------------------
 class EnterKeyWatcher:
-    """Background thread watching for ENTER presses (msvcrt-based).
+    """Background thread counting discrete ENTER presses.
 
-    Consumers either poll ``consume_press()`` or set a callback. On
-    non-Windows platforms this degrades gracefully (no key events).
+    Uses GetAsyncKeyState edge detection (Windows): a press is counted on
+    the up->down transition of the physical key. A held key therefore
+    yields exactly ONE press - the OS key-repeat stream never leaves the
+    down state, so it cannot create phantom presses, and a genuine second
+    tap always creates a fresh edge. Works even when the terminal window
+    loses focus.
     """
 
     def __init__(self):
@@ -137,8 +141,10 @@ class EnterKeyWatcher:
         self._lock = threading.Lock()
         self._running = False
         self._thread: threading.Thread | None = None
+        self._prev_down = False
+        self._last_press = 0.0
         try:
-            import msvcrt  # noqa: F401 - availability probe
+            import ctypes  # noqa: F401 - availability probe
 
             self._available = True
         except ImportError:
@@ -157,37 +163,26 @@ class EnterKeyWatcher:
         self._running = False
 
     def _loop(self) -> None:
-        import msvcrt
-
         while self._running:
-            self._poll_once(msvcrt)
+            self._poll_once()
             time.sleep(0.02)
 
-    # Windows key-repeat streams \r events ~30/s while ENTER is held;
-    # without debouncing, one hold piles up a backlog of phantom
-    # "stop recording" presses that machine-guns the voice loop.
-    _DEBOUNCE_S = 0.25
+    # Two taps closer than this are contact jitter, not intent.
+    _DEBOUNCE_S = 0.18
 
-    def _poll_once(self, kb) -> bool:
-        """Consume at most one key event. True iff ENTER press ACCEPTED."""
-        if not kb.kbhit():
-            return False
-        key = kb.getwch()  # always consume, even non-ENTER keys
-        now = time.monotonic()
-        last = getattr(self, "_last_press", 0.0)
-        if key not in ("\r", "\n") or now - last < self._DEBOUNCE_S:
-            return False
-        # A held key streams \r events forever; past the debounce window,
-        # only accept when the finger actually came back up in between.
-        if self.is_down() and now - last < self._HOLD_SUPPRESS_S:
-            return False
-        self._last_press = now
-        with self._lock:
-            self._presses += 1
-        return True
-
-    # Beyond this, a still-held key's events are treated as repeats.
-    _HOLD_SUPPRESS_S = 30.0
+    def _poll_once(self) -> bool:
+        """Sample the physical key state; count one press per clean edge."""
+        down = self.is_down()
+        accepted = False
+        if down and not self._prev_down:
+            now = time.monotonic()
+            if now - self._last_press >= self._DEBOUNCE_S:
+                self._last_press = now
+                with self._lock:
+                    self._presses += 1
+                accepted = True
+        self._prev_down = down
+        return accepted
 
     # ------------------------------------------------------------------
     def is_down(self) -> bool:

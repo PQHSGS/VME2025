@@ -391,6 +391,17 @@ class ConversationOrchestrator:
         self._summarizer_threads.clear()
 
     # ------------------------------------------------------------------
+    # Operator-facing hint repeated after every finished turn so each turn
+    # reads as a closed block in the console.
+    TURN_HINT = (
+        "Nhấn ENTER để bắt đầu nói, nhấn ENTER lần nữa để gửi.\n"
+        "Trong lúc ông nói: nhấn ENTER để chen ngang. Ctrl+C để thoát."
+    )
+    TURN_SEP = "=" * 64
+
+    def _print_turn_footer(self) -> None:
+        print(f"\n{self.TURN_HINT}\n{self.TURN_SEP}\n")
+
     def run_voice(self) -> None:
         from audio import EnterKeyWatcher, MicRecorder
 
@@ -398,8 +409,7 @@ class ConversationOrchestrator:
         watcher.start()
         recorder = MicRecorder(self.cfg)
         print("\n=== Ông Tiến sĩ Giấy - realtime ===")
-        print("Nhấn ENTER để bắt đầu nói, nhấn ENTER lần nữa để gửi.")
-        print("Trong lúc ông nói: nhấn ENTER để chen ngang. Ctrl+C để thoát.\n")
+        print(f"{self.TURN_HINT}\n{self.TURN_SEP}")
 
         if self.stt is not None and not self.stt.ready:
             self.stt.load_async(
@@ -452,9 +462,11 @@ class ConversationOrchestrator:
                     print(f"  em nhí: {text}")
                     self._barge_in.clear()
                     reply = self.process_text(text)
-                    print(f"  ông giấy: {reply}\n")
+                    print(f"  ông giấy: {reply}")
                     if self.tts:
                         self.tts.wait_done(timeout=self.cfg.llm_hard_deadline_s + 30)
+                    logger.info("turn complete - audio finished, awaiting next ENTER")
+                    self._print_turn_footer()
                     last_activity = time.monotonic()
                     continue
 

@@ -92,12 +92,21 @@ class TTSPlayer:
         else:
             self.engine_name = "edge-tts"
             cache_ns = f"edge|{cfg.tts_voice}|{cfg.tts_rate}"
-        self._text_queue: queue.Queue[str | object] = queue.Queue()
+        self._text_queue: queue.Queue[tuple[int, str] | object] = queue.Queue()
         self._pcm_queue: queue.Queue[tuple[np.ndarray, int] | object] = queue.Queue(
             maxsize=16
         )
         self._cancel = threading.Event()
         self._stop_workers = threading.Event()
+        # Ordered multi-worker synthesis: workers may finish out of order;
+        # results file into _done and a sequencer releases them to the play
+        # queue strictly in submission order. _gen invalidates in-flight
+        # results after a barge-in stop().
+        self._seq_lock = threading.Lock()
+        self._next_seq = 0
+        self._next_out = 0
+        self._done: dict[int, tuple[np.ndarray, int] | None] = {}
+        self._gen = 0
         self._cache: OrderedDict[str, tuple[np.ndarray, int]] = OrderedDict()
         self._cache_ns = cache_ns
         self.consecutive_failures = 0
@@ -117,13 +126,16 @@ class TTSPlayer:
         if self.disabled:
             logger.info("TTS disabled by config - running text-only")
             return
-        synth = threading.Thread(
-            target=self._synth_worker, name="tts-synth", daemon=True
-        )
+        self._threads = []
+        for i in range(max(1, int(self.cfg.tts_synth_workers))):
+            t = threading.Thread(
+                target=self._synth_worker, name=f"tts-synth-{i}", daemon=True
+            )
+            t.start()
+            self._threads.append(t)
         play = threading.Thread(target=self._play_worker, name="tts-play", daemon=True)
-        synth.start()
         play.start()
-        self._threads = [synth, play]
+        self._threads.append(play)
 
     def close(self) -> None:
         self._stop_workers.set()
@@ -142,8 +154,16 @@ class TTSPlayer:
 
     @property
     def busy(self) -> bool:
+        # _done must count: between synth finishing and the sequencer
+        # releasing it, both queues can be momentarily empty while audio
+        # is still pending - wait_done() would otherwise return early.
+        with self._seq_lock:
+            pending = bool(self._done)
         return (
-            self.speaking or not self._text_queue.empty() or not self._pcm_queue.empty()
+            self.speaking
+            or not self._text_queue.empty()
+            or not self._pcm_queue.empty()
+            or pending
         )
 
     def submit(self, sentence: str, tag: str = "reply") -> bool:
@@ -159,7 +179,11 @@ class TTSPlayer:
         self._speaking.set()
         with self._book_lock:
             self._submitted.append((tag, sentence))
-        self._text_queue.put(sentence)
+        with self._seq_lock:
+            seq = self._next_seq
+            self._next_seq += 1
+            gen = self._gen
+        self._text_queue.put((seq, sentence, gen))
         return True
 
     def heard_text(self, tag: str | None = None) -> str:
@@ -199,7 +223,7 @@ class TTSPlayer:
             try:
                 item = self._pcm_queue.get_nowait()
                 drained += 1
-                if item is not _SENTINEL:
+                if item is not _SENTINEL and item is not None:
                     with self._book_lock:
                         if self._submitted:
                             self._submitted.popleft()
@@ -207,6 +231,13 @@ class TTSPlayer:
                 break
         self._cancel.set()
         self._speaking.clear()
+        with self._seq_lock:
+            # Invalidate any in-flight synthesis and reset the ordering
+            # state so the next reply starts from a clean sequence.
+            self._gen += 1
+            self._done.clear()
+            self._next_seq = 0
+            self._next_out = 0
         with self._book_lock:
             # nothing further will play in this window; keep _heard intact
             self._submitted.clear()
@@ -272,6 +303,24 @@ class TTSPlayer:
                 logger.warning("prewarm failed for %r: %s", text[:40], exc)
         return done
 
+    def _file_result(
+        self, seq: int, gen: int, result: tuple[np.ndarray, int] | None
+    ) -> None:
+        """Store a synth outcome and release contiguous results in order.
+
+        ``result=None`` marks a failed synthesis: the slot must still be
+        released so later sentences are not stuck behind it. Results from a
+        previous generation (pre-barge-in) are discarded.
+        """
+        with self._seq_lock:
+            if gen != self._gen or seq < self._next_out:
+                return  # stale: barge-in happened mid-synthesis
+            self._done[seq] = result
+            while self._next_out in self._done:
+                item = self._done.pop(self._next_out)
+                self._next_out += 1
+                self._pcm_queue.put(item)
+
     def _synth_worker(self) -> None:
         while not self._stop_workers.is_set():
             try:
@@ -280,16 +329,15 @@ class TTSPlayer:
                 continue
             if item is _SENTINEL:
                 break
-            assert isinstance(item, str)
+            seq, text, gen = item
             if self._cancel.is_set():
                 continue
             try:
-                pcm, sr = self._synthesize(item)
-                if self._cancel.is_set():
-                    continue
+                pcm, sr = self._synthesize(text)
                 self.consecutive_failures = 0
-                self._pcm_queue.put((pcm, sr))
+                self._file_result(seq, gen, (pcm, sr))
             except Exception as exc:
+                self._file_result(seq, gen, None)
                 self.consecutive_failures += 1
                 logger.warning(
                     "TTS synth failed (%d in a row): %s", self.consecutive_failures, exc
@@ -312,9 +360,21 @@ class TTSPlayer:
                 continue
             if item is _SENTINEL:
                 break
+            if item is None:
+                # Failed synthesis: keep the submitted/heard bookkeeping
+                # aligned by consuming its entry, then move on silently.
+                with self._book_lock:
+                    if self._submitted:
+                        self._submitted.popleft()
+                    self._heard.append(("reply", ""))
+                continue
             if self._cancel.is_set():
                 continue
             pcm, sr = item
+            now = time.monotonic()
+            gap_s = now - getattr(self, "_last_play_end", now)
+            if gap_s > 0.5:
+                logger.info("tts: %.2fs audible gap before next sentence", gap_s)
             with self._book_lock:
                 if self._submitted:
                     self._heard.append(self._submitted.popleft())
@@ -329,6 +389,7 @@ class TTSPlayer:
                     stream.write(
                         np.ascontiguousarray(pcm[offset : offset + chunk_size])
                     )
+                self._last_play_end = time.monotonic()
             except Exception:
                 logger.exception("playback error")
                 self._close_output()
