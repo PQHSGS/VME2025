@@ -485,17 +485,17 @@ class ConversationOrchestrator:
                 try:
                     item = chunk_queue.get(timeout=wait_time)
                 except queue.Empty:
-                    if not got_first_token:
-                        logger.warning("LLM TTFT timeout after %.1fs - aborting stream", ttft_timeout)
-                        raise TimeoutError(f"LLM TTFT exceeded {ttft_timeout}s")
-                    else:
-                        logger.warning("LLM hard deadline hit (%.2fs)", deadline.elapsed)
-                        self._turn_truncated = True
-                        break
+                    logger.warning(
+                        "LLM %s after %.2fs - aborting stream gracefully",
+                        "TTFT timeout" if not got_first_token else "hard deadline hit",
+                        deadline.elapsed,
+                    )
+                    self._turn_truncated = True
+                    break
 
                 if item is _STREAM_DONE:
                     if stream_err:
-                        raise stream_err[0]
+                        logger.warning("LLM stream ended with error: %s", stream_err[0])
                     break
 
                 chunk = item
@@ -538,14 +538,21 @@ class ConversationOrchestrator:
                 )
             raise
         else:
-            # Deadline/barge-in exits are normal completions: the backend
-            # answered, so the failure counter resets.
-            self.llm_failures.record_success()
+            if parts:
+                self.llm_failures.record_success()
         finally:
             if filler_timer:
                 filler_timer.cancel()
 
         reply = " ".join(p.strip() for p in parts).strip()
+        if not reply:
+            logger.warning("LLM produced no reply - using fallback")
+            self.llm_failures.record_failure()
+            if self.tts is not None and hasattr(self.tts, "stop"):
+                self.tts.stop()
+            self._queue_speech(self.cfg.fallback_reply)
+            return self.cfg.fallback_reply, "fallback"
+
         path = "llm" if docs else "llm-nodocs"
 
         # Tool-mode bookkeeping: rich events come from the local executor;
