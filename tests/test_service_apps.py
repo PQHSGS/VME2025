@@ -89,10 +89,14 @@ def test_llm_stream_json_framing(monkeypatch):
 
     class FakeBackend:
         name = "fake"
+        last_tool_events: list = []
+        tool_skipped = True
 
-        def stream(self, messages, temperature=None, max_tokens=None):
-            yield "dòng một\n"
-            yield "dòng hai"
+        def stream(self, messages, temperature=None, max_tokens=None,
+                   tools=False, memory_ctx=None, tool_executor=None,
+                   force_search=True):
+            yield "d\u1ee5ng m\u1ed9t\n"
+            yield "d\u1ee5ng hai"
 
     monkeypatch.setattr(llm_service, "_backend", FakeBackend())
     client = fastapi_testclient.TestClient(llm_service.app)
@@ -107,8 +111,8 @@ def test_llm_stream_json_framing(monkeypatch):
             if line.startswith("data: ")
         ]
     texts = [e.get("t") for e in payload if "t" in e]
-    assert texts == ["dòng một\n", "dòng hai"]
-    assert payload[-1] == {"done": True}
+    assert texts == ["d\u1ee5ng m\u1ed9t\n", "d\u1ee5ng hai"]
+    assert payload[-1] == {"done": True, "tools": [], "skipped": True}
 
 
 def test_llm_health_is_cheap(monkeypatch):

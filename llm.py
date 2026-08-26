@@ -36,6 +36,8 @@ class LLMBackend(Protocol):
         messages: list[dict],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: bool = False,
+        memory_ctx: dict | None = None,
     ) -> Iterator[str]: ...
     def complete(
         self,
@@ -46,11 +48,58 @@ class LLMBackend(Protocol):
     def health_check(self) -> bool: ...
 
 
+# Tool contract shared by every backend/consumer. After stream() finishes,
+# ``last_tool_events`` lists one entry per executed search and
+# ``tool_skipped`` says whether the model answered without searching.
+KB_TOOL_NAME = "search_kb"
+
+
+def build_kb_tool_declaration():
+    """Typed Gemini tool declaration for search_kb (import-time cheap)."""
+    from google.genai import types
+
+    return types.Tool(
+        function_declarations=[
+            types.FunctionDeclaration(
+                name=KB_TOOL_NAME,
+                description=(
+                    "Tra cứu tài liệu nội bộ về Bảo tàng Dân tộc học và Tết "
+                    "Trung Thu. VỚI MỌI câu hỏi liên quan đến đèn ông sao, múa "
+                    "lân, bánh Trung Thu, chú Cuội, chị Hằng, rối nước, trò "
+                    "chơi dân gian hay bảo tàng: LUÔN gọi trước khi trả lời - "
+                    "kể cả khi em nhí chỉ gật đầu ('có ạ', 'tiếp đi'). Chỉ "
+                    "trả lời trực tiếp cho chào hỏi / cảm ơn / trò chuyện "
+                    "thuần túy. Query phải ĐỦ NGHĨA dựa trên toàn bộ hội thoại."
+                ),
+                parameters=types.Schema(
+                    type="OBJECT",
+                    properties={
+                        "query": types.Schema(
+                            type="STRING",
+                            description="Cụm từ khóa tìm kiếm, tự chứa đủ ngữ nghĩa.",
+                        )
+                    },
+                    required=["query"],
+                ),
+            )
+        ]
+    )
+
+
 # ----------------------------------------------------------------------
 class MockBackend:
-    """Offline backend: streams a canned reply so the pipeline is testable."""
+    """Offline backend: streams a canned reply so the pipeline is testable.
+
+    Tool-mode simulation: set ``tool_calls_first`` to make the backend
+    invoke the executor before answering; ``tool_skips`` to answer without
+    searching. Either way ``last_tool_events``/``tool_skipped`` mirror the
+    GeminiBackend contract so orchestrator code paths are identical.
+    """
 
     name = "mock"
+    tool_calls_first = False
+    tool_skips = False
+    search_query = "đèn ông sao làm bằng gì"
 
     CANNED = (
         "À câu này hay đó cháu à. Theo tài liệu trong bảo tàng thì "
@@ -58,13 +107,31 @@ class MockBackend:
         "Cháu muốn ông kể kỹ hơn không?"
     )
 
+    def __init__(self):
+        self.last_tool_events: list[dict] = []
+        self.tool_skipped = True
+
     def stream(
         self,
         messages: list[dict],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: bool = False,
+        memory_ctx: dict | None = None,
+        tool_executor=None,
+        force_search: bool = True,
     ) -> Iterator[str]:
-        # emit small word-chunks to exercise the sentence splitter
+        self.last_tool_events = []
+        fired = tools and not self.tool_skips
+        if fired:
+            docs_text = (
+                tool_executor(self.search_query) if tool_executor is not None else ""
+            )
+            self.last_tool_events = [
+                {"query": self.search_query, "docs": 1 if docs_text else 0,
+                 "best_sim": 0.7}
+            ]
+        self.tool_skipped = not bool(self.last_tool_events)
         words = self.CANNED.split(" ")
         for i in range(0, len(words), 3):
             yield " ".join(words[i : i + 3]) + (" " if i + 3 < len(words) else "")
@@ -99,6 +166,8 @@ class GeminiBackend:
         self.name = "gemini"
         self.model = model
         self.thinking_level = thinking_level
+        self.last_tool_events: list[dict] = []
+        self.tool_skipped = True
         # HTTP/2 + keepalive: one warm connection matters after idle gaps.
         # Must be a TYPED HttpOptions: google-genai 2.x mishandles base_url
         # when handed the legacy raw dict (request URL loses its scheme).
@@ -124,13 +193,28 @@ class GeminiBackend:
         return "\n\n".join(system_parts), rest
 
     def _config(
-        self, temperature: float | None, max_tokens: int | None, system_instruction: str
+        self,
+        temperature: float | None,
+        max_tokens: int | None,
+        system_instruction: str,
+        tools: bool = False,
+        force_search: bool = True,
     ):
         from google.genai import types
 
         thinking = None
         if self.thinking_level:
             thinking = types.ThinkingConfig(thinking_level=self.thinking_level)
+        tool_cfg = None
+        if tools:
+            tool_cfg = types.ToolConfig(
+                function_calling_config=types.FunctionCallingConfig(
+                    # ANY = the model must call search_kb every turn; the
+                    # executor answers chit-chat searches with an empty
+                    # result, and the model's own judgment picks the query.
+                    mode="ANY" if force_search else "AUTO"
+                )
+            )
         return types.GenerateContentConfig(
             temperature=temperature if temperature is not None else 0.4,
             max_output_tokens=max_tokens or 220,
@@ -138,13 +222,46 @@ class GeminiBackend:
             # same backend instance - shared mutable state would race stream().
             system_instruction=system_instruction or None,
             thinking_config=thinking,
+            tools=[build_kb_tool_declaration()] if tools else None,
+            tool_config=tool_cfg,
+            # Streaming + automatic function calling don't compose in the
+            # SDK; we drive the two-leg loop ourselves below.
+            automatic_function_calling=types.AutomaticFunctionCallingConfig(
+                disable=True
+            )
+            if tools
+            else None,
         )
+
+    def _consume_stream(self, chunks, sink: list, state: dict):
+        """Yield text tokens from one streaming leg, collecting typed parts.
+
+        Parts (including ``thought_signature`` carriers) are appended to
+        ``sink`` so a follow-up tool leg can replay them verbatim; the last
+        raw chunk lands in ``state["last"]`` for usage logging.
+        """
+        for chunk in chunks:
+            state["last"] = chunk
+            try:
+                candidate = chunk.candidates[0]
+                content = candidate.content
+                if content and content.parts:
+                    sink.extend(content.parts)
+                    for part in content.parts:
+                        if part.text:
+                            yield part.text
+            except AttributeError:
+                pass
 
     def stream(
         self,
         messages: list[dict],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: bool = False,
+        memory_ctx: dict | None = None,
+        tool_executor=None,
+        force_search: bool = True,
     ) -> Iterator[str]:
         system_instruction, contents = self._split_messages(messages)
         payload = [
@@ -154,21 +271,93 @@ class GeminiBackend:
             }
             for m in contents
         ]
-        last = None
+        state: dict = {"last": None}
+        self.last_tool_events: list[dict] = []
+        self.tool_skipped = True
         try:
-            for chunk in self._client.models.generate_content_stream(
-                model=self.model,
-                contents=payload,
-                config=self._config(temperature, max_tokens, system_instruction),  # type: ignore[arg-type]
+            contents_running = payload
+            # Up to 3 tool rounds. ANY mode (when forced) applies to the
+            # FIRST leg only: constraining later legs to function-calling
+            # makes a final text answer structurally impossible - every
+            # leg would emit another fc and STOP.
+            for _leg in range(3):
+                leg_config = self._config(
+                    temperature,
+                    max_tokens,
+                    system_instruction,
+                    tools,
+                    force_search and _leg == 0,
+                )
+                parts: list = []
+                got_text = False
+                for token in self._consume_stream(
+                    self._client.models.generate_content_stream(
+                        model=self.model,
+                        contents=contents_running,
+                        config=leg_config,
+                    ),
+                    parts,
+                    state,
+                ):
+                    got_text = True
+                    yield token
+
+                last_chunk = state.get("last")
+                finish = None
+                try:
+                    finish = str(
+                        last_chunk.candidates[0].finish_reason
+                    )
+                except Exception:
+                    pass
+                n_text = sum(1 for p in parts if p.text)
+                n_fc = sum(1 for p in parts if p.function_call is not None)
+                logger.info(
+                    "leg %d: parts=%d text=%d fc=%d got_text=%s finish=%s",
+                    _leg + 1, len(parts), n_text, n_fc, got_text, finish,
+                )
+
+                fc_parts = [p for p in parts if p.function_call is not None]
+                if not (tools and tool_executor is not None and fc_parts):
+                    break  # answered (or nothing to execute) - done
+
+                responses: list[dict] = []
+                for fc in (p.function_call for p in fc_parts):
+                    query = str((fc.args or {}).get("query", ""))[:200]
+                    docs_text = tool_executor(query)
+                    if not docs_text:
+                        # Empty results must STEER, not invite another call.
+                        docs_text = (
+                            "KHÔNG tìm thấy tài liệu phù hợp. Hãy trả lời em "
+                            "nhí bằng hiểu biết chung của Ông một cách thân "
+                            "thiện, và không bịa chi tiết về bảo tàng."
+                        )
+                    self.last_tool_events.append({"query": query})
+                    self.tool_skipped = False
+                    responses.append(
+                        {
+                            "function_response": {
+                                "name": fc.name or KB_TOOL_NAME,
+                                "response": {"result": docs_text},
+                            }
+                        }
+                    )
+                contents_running = contents_running + [
+                    {"role": "model", "parts": parts},
+                    {"role": "user", "parts": responses},
+                ]
+                logger.debug(
+                    "tool leg %d executed %d search(es)", _leg + 1, len(responses)
+                )
+            if parts and not got_text and not any(
+                p.function_call is not None for p in parts
             ):
-                last = chunk
-                if chunk.text:
-                    yield chunk.text
+                logger.warning("final leg produced no text - check tool config")
         finally:
             # Token + cache-hit visibility: if cached stays 0 across turns
             # the prompt is below the model's implicit-cache minimum and a
             # decision about explicit caching can be made from real data.
-            usage = getattr(last, "usage_metadata", None)
+            usage = getattr(state.get("last"), "usage_metadata", None)
             if usage is not None:
                 logger.info(
                     "llm tokens: total=%s input=%s output=%s cached=%s",

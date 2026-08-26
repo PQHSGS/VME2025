@@ -5,11 +5,17 @@ Museum of Ethnology. Vietnamese-only. Cascaded streaming pipeline:
 
 ```
 mic → push-to-talk capture (ENTER starts, ENTER sends) → gipformer-65M ASR (int8)
-    → homophone post-filter → situation fast-path → FAISS retrieval + evidence bar
+    → homophone post-filter → situation fast-path → retrieval (two modes)
     → layered context → Gemini LLM stream → sentence splitter
     → VieNeu-TTS v3 Turbo (local) / edge-tts fallback → speaker
                                          (barge-in anywhere)
 ```
+
+**Two retrieval modes** (`RETRIEVAL_MODE`): `pipeline` always searches and
+gates docs behind the evidence bar (~330ms, fastest); `tool` lets Gemini
+decide via a `search_kb` function call — it writes its own history-aware
+query (a bare "có ạ" becomes "trẻ em hoạt động Tết Trung Thu bảo tàng") at
+the cost of one extra model leg on knowledge turns.
 
 Design goals, in order:
 

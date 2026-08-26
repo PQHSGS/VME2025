@@ -57,11 +57,15 @@ class ConversationOrchestrator:
         self.tts = tts
         self.stt = stt
         self.answer_cache = answer_cache  # AnswerCache | None (disabled when None)
-        self.system_prompt = load_system_prompt()
+        self.system_prompt = load_system_prompt(
+            tool_mode=cfg.retrieval_mode == "tool"
+        )
         self.session_id = self._new_session_id()
         self.llm_failures = FailureTracker("llm", threshold=3)
         self._llm_cooldown_until = 0.0  # circuit breaker: monotonic deadline
         self._turn_truncated = False  # barge-in/deadline cut the reply short
+        self._parked_docs = {"sim": 0.0}  # last turn's best evidence (tool mode)
+        self._turn_tool_events: list[dict] = []  # rich per-turn search events
         self._summarizer_threads: list[threading.Thread] = []
         self._vectors_warmed = threading.Event()
         self._barge_in = threading.Event()
@@ -122,6 +126,8 @@ class ConversationOrchestrator:
                 "session idle %.1f min - rotating to a fresh session", idle_s / 60
             )
             self.session_id = self._new_session_id()
+            # A new visitor must not inherit the previous thread's evidence.
+            self._parked_docs = {"sim": 0.0}
         memory = self.memory_manager.get(self.session_id)
         memory.add_user(user_text)
         started = time.perf_counter()
@@ -225,6 +231,21 @@ class ConversationOrchestrator:
             early_first_clause=self.cfg.ttfa_first_clause,
         )
 
+    # ------------------------------------------------------------------
+    def _memory_ctx(self, memory, user_text: str) -> dict:
+        """Serializable snapshot for service-side tool retrieval."""
+        return {
+            "topics": memory.last_topics(),
+            "looks_like_followup": memory.looks_like_followup(user_text),
+            "seen_chunk_ids": sorted(
+                memory.recently_seen_chunk_ids(self.cfg.dedup_window_turns)
+            ),
+        }
+
+    def _parked_sim(self) -> float:
+        """Best evidence sim from the previous tool-mode turn (audit slot)."""
+        return float((getattr(self, "_parked_docs", None) or {}).get("sim", 0.0))
+
     def _generate_reply(
         self,
         user_text: str,
@@ -245,25 +266,39 @@ class ConversationOrchestrator:
         docs: list[dict] = []
         self._turn_truncated = False
         result = None
-        if self.retriever is not None and self.retriever.ready:
-            result = self.retriever.retrieve(
-                user_text,
-                memory=memory,
-                exclude_ids=set(),  # per-turn dedup handled via seen_chunks
-                q_vec=q_vec,
-            )
-            trace.mark("retrieval")
-            if result.docs:
-                docs = [
-                    {"path": d.path, "text": d.text, "score": d.score}
-                    for d in result.docs
-                ]
-                memory.mark_chunks_shown([d.chunk_id for d in result.docs])
-        if trace is not None:
-            payload = {"docs": len(docs)}
-            if result is not None:
-                payload["best_sim"] = round(result.best_sim, 3)
-            trace.set(**payload)
+        tool_mode = self.cfg.retrieval_mode == "tool"
+        if tool_mode:
+            parked = getattr(self, "_parked_docs", None) or {}
+            # Guardrail (default off): very short follow-ups right after a
+            # strong-evidence turn fall back to the pipeline path so a
+            # hesitant agent cannot drop a thread the child continued.
+            if (
+                self.cfg.tool_guardrail
+                and parked.get("sim", 0.0) >= self.cfg.evidence_sim_min
+                and len(user_text.split()) <= 3
+            ):
+                logger.info("tool guardrail: short follow-up - pipeline fallback")
+                tool_mode = False
+        if not tool_mode:
+            if self.retriever is not None and self.retriever.ready:
+                result = self.retriever.retrieve(
+                    user_text,
+                    memory=memory,
+                    exclude_ids=set(),  # per-turn dedup handled via seen_chunks
+                    q_vec=q_vec,
+                )
+                trace.mark("retrieval")
+                if result.docs:
+                    docs = [
+                        {"path": d.path, "text": d.text, "score": d.score}
+                        for d in result.docs
+                    ]
+                    memory.mark_chunks_shown([d.chunk_id for d in result.docs])
+            if trace is not None:
+                payload = {"docs": len(docs)}
+                if result is not None:
+                    payload["best_sim"] = round(result.best_sim, 3)
+                trace.set(**payload)
 
         messages, meta = build_messages(
             self.system_prompt,
@@ -277,6 +312,7 @@ class ConversationOrchestrator:
         if trace is not None:
             trace.set(**meta)
 
+        self._turn_tool_events = []
         splitter = self._make_splitter()
         deadline = Deadline(self.cfg.llm_hard_deadline_s)
         spoke_fillers = False
@@ -297,6 +333,47 @@ class ConversationOrchestrator:
                 spoke_fillers = True
                 self.tts.submit(phrase, tag="filler")
 
+        def tool_executor(query: str) -> str:
+            """search_kb execution - local retriever or RemoteRetriever."""
+            from prompts import format_retrieved_block
+
+            with budget("tool.search", 2.0):
+                if self.retriever is not None and self.retriever.ready:
+                    result = self.retriever.retrieve(
+                        query, memory=memory, q_vec=q_vec
+                    )
+                else:
+                    result = None
+            if trace is not None:
+                trace.mark("tool-search")
+            if result is None:
+                logger.warning("tool search unavailable - empty result")
+                return ""
+            memory.mark_chunks_shown([d.chunk_id for d in result.docs])
+            self._turn_tool_events.append(
+                {
+                    "query": query,
+                    "docs": len(result.docs),
+                    "best_sim": round(result.best_sim, 3),
+                }
+            )
+            if trace is not None:
+                trace.set(
+                    docs=len(result.docs), best_sim=round(result.best_sim, 3)
+                )
+            logger.info(
+                "tool search %r -> %d docs (best_sim=%.3f)",
+                query[:60], len(result.docs), result.best_sim,
+            )
+            if not result.docs:
+                return ""
+            return format_retrieved_block(
+                [
+                    {"path": d.path, "text": d.text, "score": d.score}
+                    for d in result.docs
+                ]
+            )[:8000]
+
         try:
             assert self.llm is not None
             if self.tts is not None:
@@ -304,7 +381,17 @@ class ConversationOrchestrator:
             stream = self.llm.stream(
                 messages,
                 temperature=self.cfg.llm_temperature,
-                max_tokens=self.cfg.llm_max_tokens,
+                # Tool legs carry thought signatures + a rewrite pass; the
+                # pipeline's reply-sized budget starves them into one word.
+                max_tokens=(
+                    max(self.cfg.tool_max_tokens, self.cfg.llm_max_tokens)
+                    if tool_mode
+                    else self.cfg.llm_max_tokens
+                ),
+                tools=tool_mode,
+                memory_ctx=self._memory_ctx(memory, user_text) if tool_mode else None,
+                tool_executor=tool_executor if tool_mode else None,
+                force_search=self.cfg.tool_force_search,
             )
             filler_timer = threading.Timer(self.cfg.ttft_filler_after_s, speak_filler)
             filler_timer.daemon = True
@@ -356,6 +443,41 @@ class ConversationOrchestrator:
 
         reply = " ".join(p.strip() for p in parts).strip()
         path = "llm" if docs else "llm-nodocs"
+
+        # Tool-mode bookkeeping: rich events come from the local executor;
+        # remote mode falls back to the done-event fields parsed by
+        # RemoteLLM. Updates the parked-evidence slot and audits skips.
+        # Answer-cache stays pipeline-only: its self-contained check needs
+        # the pre-retrieval query verdict.
+        if self.cfg.retrieval_mode == "tool":
+            events = self._turn_tool_events or [
+                {
+                    "query": str(e.get("query", ""))[:80],
+                    "docs": int(e.get("docs", 0) or 0),
+                    "best_sim": round(float(e.get("best_sim", 0.0)), 3),
+                }
+                for e in getattr(self.llm, "last_tool_events", [])
+            ]
+            skipped = bool(getattr(self.llm, "tool_skipped", True))
+            if any(int(e.get("docs", 0) or 0) > 0 for e in events):
+                path = "llm"
+            if trace is not None:
+                if events:
+                    trace.mark("tool-search")
+                    trace.set(tool_events=events)
+                if skipped:
+                    trace.mark("tool-skip")
+                    trace.set(parked_sim=round(self._parked_sim(), 3))
+            if skipped:
+                logger.info(
+                    "agent skipped search (parked_sim=%.3f) - answering from thread",
+                    self._parked_sim(),
+                )
+            sim_now = max(
+                [float(e.get("best_sim", 0.0)) for e in events] + [0.0]
+            )
+            self._parked_docs = {"sim": max(sim_now, self._parked_sim())}
+
         if (
             self.answer_cache
             and path == "llm"

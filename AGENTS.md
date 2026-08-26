@@ -89,7 +89,7 @@ existing tests.
 | `rag/retriever.py` | gate → FAISS → seen-chunk penalty → MMR (chunk vectors cached) → char budget |
 | `rag/situations.py` | scripted Q&A fast path from `data/situations.csv` |
 | `answer_cache.py` | semantic replay cache for repeated questions (exact + cosine tiers; follow-up guarded) |
-| `llm.py` | backends gemini/mock; `select_backend` fails loud |
+| `llm.py` | backends gemini/mock; `select_backend` fails loud; tool mode = manual two-leg `search_kb` loop (ANY on leg 1, AUTO after; thought-signature parts replayed verbatim) |
 | `asr.py` | gipformer-65M int8 via sherpa-onnx (default); WhisperSTT legacy fallback |
 | `asr_correct.py` | zero-latency domain-homophone post-filter; venue overrides via `data/asr_homophones.csv` |
 | `tts.py` | engine chain VieNeu → edge-tts → text-only; N synth workers + order-preserving sequencer; cache/barge-in bookkeeping; >0.5s audible-gap logging |
@@ -150,6 +150,14 @@ existing tests.
 - Gemini implicit caching needs ≥~4k shared prefix tokens; our ~1.9k-token
   prompt reports `cached=None` (see `llm tokens:` lines in the LLM service
   log). Revisit explicit caching only if the prompt grows past the threshold.
+- Tool mode (`RETRIEVAL_MODE=tool`): Gemini decides retrieval via a
+  `search_kb` tool and writes its own history-aware query — no intent
+  heuristics. ANY function-calling mode on leg 1 guarantees grounding
+  (AUTO-only let flash-lite skip clear knowledge questions); later legs run
+  AUTO or a text answer is structurally impossible. `TOOL_MAX_TOKENS=1024`:
+  tool legs carry signatures + rewrite; the 220 reply budget starves them.
+  Measured: knowledge turns ~10-16s vs 1.6-2s pipeline; chat turns skip
+  retrieval entirely. `tool-skip(parked_sim=…)` traces audit agent skips.
 - Gemini transport: HTTP/2 enabled via `client_args`; `google-genai` pinned
   ≥1.46 (concurrency latency fix). httpx keepalive expires after ~5s idle, so
   the first turn after a long gap pays TCP+TLS again (~200ms) — accepted.
@@ -170,6 +178,7 @@ read `logs/traces.jsonl`.
 | `SITUATIONS_THRESHOLD` | situation hits logged at match time | misses on obvious scripted Qs → lower |
 | `TTS_IDLE_CLOSE_S` | first-word delay after long gaps | audio device contention with other apps → shorten |
 | `TTS_SYNTH_WORKERS` / `TTS_MAX_CHUNK_CHARS` | `tts: X.XXs audible gap` lines in service log | gaps between sentences → more workers or smaller chunks; CPU starved during replies → fewer workers |
+| `RETRIEVAL_MODE` / `TOOL_*` | trace marks `tool-search`/`tool-skip`, `parked_sim`, TTFA delta vs pipeline | agent skips on clear questions → keep `TOOL_FORCE_SEARCH=true`; knowledge-turn TTFA too slow → back to `pipeline` |
 
 ## Reference material
 

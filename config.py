@@ -92,6 +92,27 @@ class Config:
     gemini_api_key: str = _env_str("GEMINI_API_KEY", _env_str("GOOGLE_API_KEY", ""))
     # Gemini 3.x: "minimal"=fastest TTFT, "low"|"medium"|"high"=slower+smarter.
     gemini_thinking_level: str | None = _env("GEMINI_THINKING_LEVEL", "minimal")
+
+    # Retrieval decision owner: pipeline = always pre-retrieve behind the
+    # evidence bar (today's behavior); tool = Gemini decides via search_kb
+    # and writes its own history-aware query. Tool turns pay one extra
+    # model leg; chat turns skip retrieval entirely.
+    retrieval_mode: str = _env_str("RETRIEVAL_MODE", "pipeline")  # pipeline | tool
+    # Trust-agent policy: when the agent skips searching despite parked
+    # prior-turn evidence above the bar, log it (always) - and when on,
+    # ALSO force the pipeline path for very short follow-up turns so a
+    # hesitant agent cannot drop context a child explicitly continued.
+    tool_guardrail: bool = field(default_factory=lambda: _env_bool("TOOL_GUARDRAIL", False))
+    # Force search_kb on EVERY turn (FunctionCallingConfig ANY). Flash-lite
+    # sometimes skips the tool even on clear knowledge questions; forcing
+    # trades chat-turn speed for guaranteed grounding. Default: on - a
+    # hallucinated museum fact costs more than 0.3s of search.
+    tool_force_search: bool = field(
+        default_factory=lambda: _env_bool("TOOL_FORCE_SEARCH", True)
+    )
+    # Tool turns carry thought signatures + two legs; the pipeline's small
+    # reply budget starves them (measured: 220 tokens → one-word answers).
+    tool_max_tokens: int = _env_int("TOOL_MAX_TOKENS", 1024)
     # Optional reverse proxy / regional gateway (AI Studio is global-only).
     gemini_base_url: str = _env_str("GEMINI_BASE_URL", "")
     # [TUNE] temperature and max tokens affect answer style + latency.

@@ -143,7 +143,19 @@ class RemoteRetriever:
     def warm_vectors(self):
         return None  # server warms its own MMR cache at startup
 
-    def retrieve(self, query, memory=None, exclude_ids=None, q_vec=None):
+    def retrieve(
+        self,
+        query,
+        memory=None,
+        exclude_ids=None,
+        q_vec=None,
+        raw_memory_ctx: dict | None = None,
+    ):
+        """Retrieve from the RAG service.
+
+        ``raw_memory_ctx`` (tool-mode path from the LLM service) supplies
+        the memory payload directly instead of duck-typing a memory object.
+        """
         from rag.retriever import RetrievalResult
 
         if not self.ready:
@@ -152,7 +164,9 @@ class RemoteRetriever:
         payload: dict = {"query": query}
         if q_vec is not None:
             payload["q_vec"] = np.asarray(q_vec, dtype=np.float32).tolist()
-        if memory is not None:
+        if raw_memory_ctx is not None:
+            payload["memory_ctx"] = raw_memory_ctx
+        elif memory is not None:
             payload["memory_ctx"] = {
                 "topics": memory.last_topics(),
                 "looks_like_followup": memory.looks_like_followup(query),
@@ -310,17 +324,29 @@ class RemoteLLM:
         self.name = "llm-service"
         self.base = cfg.llm_service_url.rstrip("/")
         self._transport = transport
+        # Populated after each stream() when tool mode fired on the service.
+        self.last_tool_events: list[dict] = []
+        self.tool_skipped = True
 
     def stream(
         self,
         messages: list[dict],
         temperature: float | None = None,
         max_tokens: int | None = None,
+        tools: bool = False,
+        memory_ctx: dict | None = None,
+        tool_executor=None,
+        force_search: bool = True,
     ):
+        self.last_tool_events = []
+        self.tool_skipped = True
         payload = {
             "messages": messages,
             "temperature": temperature,
             "max_tokens": max_tokens,
+            "tools": tools,
+            "memory_ctx": memory_ctx,
+            "force_search": force_search,
         }
         with get_client(self._transport).stream(
             "POST", f"{self.base}/stream", json=payload, timeout=_timeout(30.0)
@@ -332,6 +358,8 @@ class RemoteLLM:
                     continue
                 event = json.loads(line[6:])
                 if event.get("done"):
+                    self.last_tool_events = list(event.get("tools") or [])
+                    self.tool_skipped = not bool(self.last_tool_events)
                     break
                 token = event.get("t")
                 if token:

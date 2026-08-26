@@ -27,12 +27,19 @@ logger = logging.getLogger("prompts")
 DEFAULT_SYSTEM_PROMPT_PATH = (
     Path(__file__).resolve().parent / "prompts" / "system_prompt.md"
 )
+TOOL_POLICY_PATH = Path(__file__).resolve().parent / "prompts" / "tool_policy.md"
 
 
-def load_system_prompt(path: Path | None = None) -> str:
+def load_system_prompt(path: Path | None = None, tool_mode: bool = False) -> str:
+    """Load the persona prompt, optionally with the agent-tool policy block.
+
+    Each mode's prompt is byte-stable across runs (prefix-cache friendly);
+    the policy block is appended AFTER the base so `QUY TẮC BẮT BUỘC`
+    remains the final section in pipeline mode.
+    """
     path = path or DEFAULT_SYSTEM_PROMPT_PATH
     try:
-        return path.read_text(encoding="utf-8")
+        prompt = path.read_text(encoding="utf-8")
     except OSError:
         logger.exception(
             "cannot read system prompt at %s; using minimal fallback", path
@@ -41,6 +48,14 @@ def load_system_prompt(path: Path | None = None) -> str:
             "Bạn là Ông Tiến sĩ Giấy AI, trợ lý vui tính cho trẻ em tại "
             "Bảo tàng Dân tộc học Việt Nam. Trả lời ngắn gọn bằng tiếng Việt."
         )
+    if tool_mode:
+        try:
+            prompt = (
+                prompt.rstrip() + "\n\n" + TOOL_POLICY_PATH.read_text(encoding="utf-8")
+            )
+        except OSError:
+            logger.exception("cannot read tool policy at %s", TOOL_POLICY_PATH)
+    return prompt
 
 
 def format_retrieved_block(docs: list[dict]) -> str:

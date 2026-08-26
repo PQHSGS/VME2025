@@ -37,6 +37,12 @@ class GenerateRequest(BaseModel):
     messages: list[Message]
     temperature: float | None = None
     max_tokens: int | None = None
+    # Tool mode: service-side search_kb loop against the RAG service. The
+    # orchestrator ships a memory snapshot so retrieval keeps its dedup and
+    # follow-up enrichment without cross-process object references.
+    tools: bool = False
+    memory_ctx: dict | None = None
+    force_search: bool = True
 
 
 class GenerateResponse(BaseModel):
@@ -94,15 +100,75 @@ def stream(req: GenerateRequest):
         return StreamingResponse(iter([]), media_type="text/event-stream")
 
     messages = [m.model_dump() for m in req.messages]
+    memory_ctx = req.memory_ctx
 
     def generate() -> Iterator[str]:
         # JSON-encode every event: raw token chunks may contain "\n" which
         # would break SSE framing ("data: <chunk with \n>" splits wrongly).
+        # Rich tool events ride inside the done event so the orchestrator
+        # can trace docs/best_sim without another round-trip.
+        tool_events: list[dict] = []
+        retriever_ready = True
+
+        if req.tools:
+            from services.clients import RemoteRetriever
+
+            rag = RemoteRetriever(cfg)
+            retriever_ready = rag.ready
+
+        def executor(query: str) -> str:
+            from prompts import format_retrieved_block
+
+            nonlocal retriever_ready
+            if not retriever_ready:
+                result_docs, best_sim = [], 0.0
+            else:
+                result = rag.retrieve(query, raw_memory_ctx=memory_ctx)
+                result_docs = [
+                    {"path": d.path, "text": d.text, "score": d.score}
+                    for d in result.docs
+                ]
+                best_sim = result.best_sim
+            logger.info(
+                "tool search %r -> %d docs (best_sim=%.3f)",
+                query[:60],
+                len(result_docs),
+                best_sim,
+            )
+            tool_events.append(
+                {
+                    "query": query[:120],
+                    "docs": len(result_docs),
+                    "best_sim": round(best_sim, 3),
+                }
+            )
+            if not result_docs:
+                # Steer leg 2 instead of inviting another tool round-trip.
+                return (
+                    "KHÔNG tìm thấy tài liệu phù hợp. Hãy trả lời em nhí "
+                    "bằng hiểu biết chung của Ông một cách thân thiện, và "
+                    "không bịa chi tiết về bảo tàng."
+                )
+            return format_retrieved_block(result_docs)[:8000]
+
         for chunk in _backend.stream(
-            messages, temperature=req.temperature, max_tokens=req.max_tokens
+            messages,
+            temperature=req.temperature,
+            max_tokens=req.max_tokens,
+            tools=req.tools,
+            memory_ctx=memory_ctx,
+            tool_executor=executor if req.tools else None,
+            force_search=req.force_search,
         ):
             yield f"data: {json.dumps({'t': chunk}, ensure_ascii=False)}\n\n"
-        yield 'data: {"done": true}\n\n'
+        yield "data: " + json.dumps(
+            {
+                "done": True,
+                "tools": tool_events or list(getattr(_backend, "last_tool_events", [])),
+                "skipped": bool(getattr(_backend, "tool_skipped", True)),
+            },
+            ensure_ascii=False,
+        ) + "\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream")
 
