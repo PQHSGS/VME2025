@@ -31,10 +31,10 @@ logger = logging.getLogger("telemetry")
 class NullSpan:
     """No-op span used when telemetry is disabled or fails."""
 
-    _extra: dict = {}
-
     def mark(self, stage: str) -> None: ...
     def set(self, **fields) -> None: ...
+    def get(self, key: str, default=None):
+        return default
     def finish(self, **fields) -> None: ...
 
 
@@ -53,6 +53,9 @@ class TurnSpan(NullSpan):
 
     def set(self, **fields) -> None:
         self._extra.update(fields)
+
+    def get(self, key: str, default=None):
+        return self._extra.get(key, default)
 
     def finish(self, **fields) -> None:
         self.set(**fields)

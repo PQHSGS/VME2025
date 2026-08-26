@@ -207,9 +207,8 @@ class ConversationOrchestrator:
         memory.add_bot_reply(reply)
         self._maybe_summarize(memory)
         elapsed_s = time.perf_counter() - started
-        extra = trace._extra if trace is not None else {}
-        ttft_s = extra.get("ttft_s")
-        doc_count = extra.get("docs", 0)
+        ttft_s = trace.get("ttft_s") if trace is not None else None
+        doc_count = trace.get("docs", 0) if trace is not None else 0
         trace.finish(path=path, reply_chars=len(reply))
         self.conv_log.log_turn(
             session_id=self.session_id,
