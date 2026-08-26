@@ -149,6 +149,7 @@ class ConversationOrchestrator:
                 logger.debug("embed-once failed; consumers will embed individually")
 
         try:
+            # 1. Fast path: scripted situation match (0ms LLM bypass)
             situation = (
                 self.situations.match(user_text, q_vec=q_vec)
                 if (self.situations and self.situations.ready)
@@ -156,38 +157,37 @@ class ConversationOrchestrator:
             )
             if situation is not None and situation.answer:
                 trace.mark("situation")
-                reply = situation.answer
-                path = "situation"
                 if self.answer_cache:
-                    self.answer_cache.store(user_text, reply, q_vec=q_vec)
-                self._queue_speech(reply)
-            else:
-                # A guidance-only situation match steers the LLM answer.
-                guidance = (
-                    situation.guidance
-                    if (situation is not None and situation.guidance)
-                    else None
+                    self.answer_cache.store(user_text, situation.answer, q_vec=q_vec)
+                self._queue_speech(situation.answer)
+                return self._finalize_turn(
+                    user_text, situation.answer, "situation", memory, started, trace
                 )
-                cached_reply = (
-                    self.answer_cache.lookup(user_text, q_vec=q_vec)
-                    if self.answer_cache
-                    else None
+
+            # 2. Fast path: semantic replay cache hit
+            cached_reply = (
+                self.answer_cache.lookup(user_text, q_vec=q_vec)
+                if self.answer_cache
+                else None
+            )
+            if cached_reply is not None:
+                trace.mark("answer_cache")
+                if self.answer_cache.last_hit_chunk_ids:
+                    memory.mark_chunks_shown(self.answer_cache.last_hit_chunk_ids)
+                self._queue_speech(cached_reply)
+                return self._finalize_turn(
+                    user_text, cached_reply, "answer-cache", memory, started, trace
                 )
-                if cached_reply is not None:
-                    trace.mark("answer_cache")
-                    reply, path = cached_reply, "answer-cache"
-                    # Replayed answers still count as "shown" for dedup.
-                    if self.answer_cache.last_hit_chunk_ids:
-                        memory.mark_chunks_shown(self.answer_cache.last_hit_chunk_ids)
-                    self._queue_speech(reply)
-                else:
-                    reply, path = self._generate_reply(
-                        user_text,
-                        memory,
-                        trace=trace,
-                        q_vec=q_vec,
-                        guidance=guidance,
-                    )
+
+            # 3. Dynamic LLM generation (steered by situation guidance if present)
+            guidance = situation.guidance if situation else None
+            reply, path = self._generate_reply(
+                user_text,
+                memory,
+                trace=trace,
+                q_vec=q_vec,
+                guidance=guidance,
+            )
         except Exception:
             logger.exception("turn failed")
             reply = self.cfg.fallback_reply
@@ -196,6 +196,18 @@ class ConversationOrchestrator:
                 self.tts.stop()
             self._queue_speech(reply)
 
+        return self._finalize_turn(user_text, reply, path, memory, started, trace)
+
+    def _finalize_turn(
+        self,
+        user_text: str,
+        reply: str,
+        path: str,
+        memory,
+        started: float,
+        trace,
+    ) -> str:
+        """Bookkeep, summarize, and record telemetry for one completed turn."""
         memory.add_bot_reply(reply)
         self._maybe_summarize(memory)
         elapsed_s = time.perf_counter() - started
