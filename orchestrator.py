@@ -107,11 +107,7 @@ class ConversationOrchestrator:
             self.llm = select_backend(self.cfg)
         if self.tts is not None:
             self.tts.start()
-            prewarm = getattr(self.tts, "prewarm", None)
-            if callable(prewarm):
-                # Synthesize the short high-traffic lines once so fillers and
-                # error replies answer from cache instantly.
-                prewarm([*self.cfg.filler_phrases, self.cfg.fallback_reply])
+            self.tts.prewarm([*self.cfg.filler_phrases, self.cfg.fallback_reply])
         logger.info("warmup done in %.2fs", time.perf_counter() - started)
 
     # ------------------------------------------------------------------
@@ -192,7 +188,7 @@ class ConversationOrchestrator:
             logger.exception("turn failed")
             reply = self.cfg.fallback_reply
             path = "fallback"
-            if self.tts is not None and hasattr(self.tts, "stop"):
+            if self.tts is not None:
                 self.tts.stop()
             self._queue_speech(reply)
 
@@ -211,8 +207,9 @@ class ConversationOrchestrator:
         memory.add_bot_reply(reply)
         self._maybe_summarize(memory)
         elapsed_s = time.perf_counter() - started
-        ttft_s = getattr(trace, "_extra", {}).get("ttft_s")
-        doc_count = getattr(trace, "_extra", {}).get("docs", 0)
+        extra = trace._extra if trace is not None else {}
+        ttft_s = extra.get("ttft_s")
+        doc_count = extra.get("docs", 0)
         trace.finish(path=path, reply_chars=len(reply))
         self.conv_log.log_turn(
             session_id=self.session_id,
@@ -262,7 +259,7 @@ class ConversationOrchestrator:
 
     def _parked_sim(self) -> float:
         """Best evidence sim from the previous tool-mode turn (audit slot)."""
-        return float((getattr(self, "_parked_docs", None) or {}).get("sim", 0.0))
+        return float(self._parked_docs.get("sim", 0.0))
 
     def _on_llm_failure(self) -> None:
         """Record an LLM error and open the circuit if the failure threshold is hit."""
@@ -560,7 +557,7 @@ class ConversationOrchestrator:
         if not reply:
             logger.warning("LLM produced no reply - using fallback")
             self._on_llm_failure()
-            if self.tts is not None and hasattr(self.tts, "stop"):
+            if self.tts is not None:
                 self.tts.stop()
             self._queue_speech(self.cfg.fallback_reply)
             return self.cfg.fallback_reply, "fallback"
@@ -581,9 +578,9 @@ class ConversationOrchestrator:
                     "docs": int(e.get("docs", 0) or 0),
                     "best_sim": round(float(e.get("best_sim", 0.0)), 3),
                 }
-                for e in getattr(self.llm, "last_tool_events", [])
+                for e in (self.llm.last_tool_events if self.llm else [])
             ]
-            skipped = bool(getattr(self.llm, "tool_skipped", True))
+            skipped = bool(self.llm.tool_skipped if self.llm else True)
             if events:
                 # Single source of truth for docs/best_sim on tool turns
                 # (feeds conv_log's doc_count too).

@@ -61,6 +61,12 @@ class RecorderTTS:
     def close(self):
         pass
 
+    def stop(self):
+        pass
+
+    def prewarm(self, phrases):
+        pass
+
 
 def main() -> int:
     parser = argparse.ArgumentParser()

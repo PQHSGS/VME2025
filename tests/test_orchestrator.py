@@ -36,6 +36,9 @@ class FakeTTS:
     def stop(self):
         pass
 
+    def prewarm(self, phrases):
+        pass
+
 
 class FakeSituations:
     ready = True

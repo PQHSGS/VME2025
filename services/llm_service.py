@@ -182,8 +182,8 @@ def stream(req: GenerateRequest):
         yield "data: " + json.dumps(
             {
                 "done": True,
-                "tools": tool_events or list(getattr(_backend, "last_tool_events", [])),
-                "skipped": bool(getattr(_backend, "tool_skipped", True)),
+                "tools": tool_events or list(_backend.last_tool_events if _backend else []),
+                "skipped": bool(_backend.tool_skipped if _backend else True),
             },
             ensure_ascii=False,
         ) + "\n\n"
