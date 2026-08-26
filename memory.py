@@ -38,6 +38,13 @@ _LIKE_PATTERNS = [
         re.IGNORECASE,
     ),
 ]
+_AGE_PATTERNS = [
+    re.compile(r"\b(?i:cháu|em|con|tôi|mình)\s+(?:được\s+|mới\s+)?(\d{1,2})\s+tuổi\b"),
+    re.compile(
+        r"\b(?i:cháu|em|con|tôi|mình)\s+học\s+lớp\s+([1-9]|1[0-2]|mầm\s+non|lá|chồi|mẫu\s+giáo)\b",
+        re.IGNORECASE,
+    ),
+]
 _PRONOUN_HINTS = ("nó", "cái đó", "cái ấy", "ông ấy", "bà ấy", "vậy", "rồi", "tiếp")
 
 
@@ -115,6 +122,11 @@ class SessionMemory:
                     self.facts["thích"] = f"{existing}; {like}"
                 else:
                     self.facts.setdefault("thích", like)
+                break
+        for pattern in _AGE_PATTERNS:
+            match = pattern.search(text)
+            if match:
+                self.facts.setdefault("tuổi/lớp", match.group(1).strip())
                 break
         self._pending_user = text
 

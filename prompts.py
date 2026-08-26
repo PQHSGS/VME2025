@@ -74,20 +74,27 @@ def build_context_block(
     """Assemble the non-verbatim layers: summary + facts + docs + guidance."""
     sections: list[str] = []
     if memory.summary:
-        sections.append(f"### TÓM TẮT CÁC PHẦN TRƯỚC\n{memory.summary.strip()}")
+        sections.append(
+            f"<tom_tat>\n### TÓM TẮT CÁC PHẦN TRƯỚC\n{memory.summary.strip()}\n</tom_tat>"
+        )
     if memory.facts:
         facts = "; ".join(f"{k}: {v}" for k, v in memory.facts.items())
-        sections.append(f"### THÔNG TIN ĐÃ BIẾT VỀ EM NHÍ\n{facts}")
+        sections.append(
+            f"<thong_tin_em_nhi>\n### THÔNG TIN ĐÃ BIẾT VỀ EM NHÍ\n{facts}\n</thong_tin_em_nhi>"
+        )
     if docs:
         sections.append(
-            "### TÀI LIỆU NỀN THAM KHẢO (chỉ dùng khi em nhí hỏi để tìm hiểu"
+            "<tai_lieu_tham_khao>\n### TÀI LIỆU NỀN THAM KHẢO (chỉ dùng khi em nhí hỏi để tìm hiểu"
             " sâu hơn; đang trò chuyện thường thì bỏ qua)\n"
             + format_retrieved_block(docs)
+            + "\n</tai_lieu_tham_khao>"
         )
     # Operator-scripted steering from a situations.csv row that had no
     # canned answer - advice on HOW to answer, not what to say verbatim.
     if guidance:
-        sections.append(f"### GỢI Ý TRẢ LỜI (từ ban tổ chức)\n{guidance.strip()}")
+        sections.append(
+            f"<goi_y_tra_loi>\n### GỢI Ý TRẢ LỜI (từ ban tổ chức)\n{guidance.strip()}\n</goi_y_tra_loi>"
+        )
     if not sections:
         return None
     return "\n\n".join(sections)
@@ -122,8 +129,10 @@ def build_messages(
     current_parts: list[str] = []
     if context_block:
         current_parts.append(context_block)
-    current_parts.append(f"### CÂU HỎI HIỆN TẠI CỦA EM NHÍ\n{user_text}")
-    messages.append({"role": "user", "content": "\n\n---\n\n".join(current_parts)})
+    current_parts.append(
+        f"<cau_hoi_hien_tai>\n### CÂU HỎI HIỆN TẠI CỦA EM NHÍ\n{user_text}\n</cau_hoi_hien_tai>"
+    )
+    messages.append({"role": "user", "content": "\n\n".join(current_parts)})
 
     meta = {
         "context_chars": len(context_block or ""),
