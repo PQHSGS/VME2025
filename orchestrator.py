@@ -1,10 +1,10 @@
 """Conversation orchestrator - the realtime state machine.
 
 Turn flow:
-  IDLE -> RECORDING (PTT_MODE: smart auto-stop | manual toggle | hold)
+  IDLE -> RECORDING (push-to-talk: ENTER starts, ENTER again sends)
         -> TRANSCRIBING (gipformer via ASR service, ~3s soft budget;
                          homophones canonicalized before the brain sees them)
-        -> THINKING     (situation fast-path OR gate->retrieve->single LLM call;
+        -> THINKING     (situation fast-path OR evidence-bar retrieval -> single LLM call;
                          TTFT filler spoken if the model stalls; hard deadline)
         -> SPEAKING     (sentence-level pipelined TTS, barge-in via ENTER)
 
@@ -397,14 +397,8 @@ class ConversationOrchestrator:
         watcher = EnterKeyWatcher()
         watcher.start()
         recorder = MicRecorder(self.cfg)
-        mode = getattr(self.cfg, "ptt_mode", "smart")
-        hints = {
-            "smart": "Nhấn ENTER để bắt đầu nói. Im lặng ~1.2s hoặc nhấn ENTER để kết thúc.",
-            "manual": "Push-to-talk thuần: ENTER bắt đầu, chỉ ENTER kết thúc.",
-            "hold": "Giữ ENTER để nói, thả tay để gửi.",
-        }
         print("\n=== Ông Tiến sĩ Giấy - realtime ===")
-        print(hints.get(mode, hints["smart"]))
+        print("Nhấn ENTER để bắt đầu nói, nhấn ENTER lần nữa để gửi.")
         print("Trong lúc ông nói: nhấn ENTER để chen ngang. Ctrl+C để thoát.\n")
 
         if self.stt is not None and not self.stt.ready:
@@ -435,12 +429,9 @@ class ConversationOrchestrator:
                             memory.amend_last_bot_reply(heard)
                             print(f"  (ông dừng lại, đã nghe: {heard[:60]}...)")
                         continue
-                    if mode == "hold":
-                        audio = recorder.record_hold(watcher.is_down)
-                    else:
-                        audio = recorder.record_until_turn_end(
-                            stop_check=watcher.consume_press
-                        )
+                    audio = recorder.record_push_to_talk(
+                        stop_check=watcher.consume_press
+                    )
                     with budget("asr.transcribe", 3.0):
                         text = (
                             self.stt.transcribe(audio, SAMPLE_RATE)

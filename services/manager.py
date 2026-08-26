@@ -57,7 +57,6 @@ LOG_DIR = PROJECT_ROOT / "logs" / "services"
 # Source file -> owning service; None means "restart everything".
 _FILE_OWNERSHIP = {
     "asr.py": "asr",
-    "smart_turn.py": "asr",
     "services/asr_service.py": "asr",
     "llm.py": "llm",
     "services/llm_service.py": "llm",

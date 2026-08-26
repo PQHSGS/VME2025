@@ -29,11 +29,10 @@ BASE_DIR = Path(__file__).resolve().parent
 REPO_ROOT = BASE_DIR.parent
 
 # ---- Fixed constants (not tunable, not overridable via env) ----------------
-SAMPLE_RATE = 16000  # every model expects 16kHz; changing breaks ASR + smart-turn
+SAMPLE_RATE = 16000  # every model expects 16kHz; changing breaks ASR
 FAISS_DIR = BASE_DIR / "data" / "faiss"
 LOG_DIR = BASE_DIR / "logs"
 SITUATIONS_CSV = BASE_DIR / "data" / "situations.csv"
-SMART_TURN_MODEL = BASE_DIR / "models" / "smart-turn-v3.2-cpu.onnx"
 GIPFORMER_DIR = BASE_DIR / "models" / "gipformer-65M-i8"
 
 
@@ -134,16 +133,11 @@ class Config:
     # ==================================================================
     # Capture — push-to-talk end-of-turn windows
     # ==================================================================
-    # How a turn ENDS: smart = ENTER toggles + auto-stop via smart-turn
-    # classifier (kid hesitations keep recording); manual = ONLY the
-    # operator's ENTER stops it (pure push-to-toggle); hold = record while
-    # ENTER is held, release stops (zero detection latency).
-    ptt_mode: str = _env_str("PTT_MODE", "smart")  # smart | manual | hold
-    # [TUNE] legacy fixed quiet window when smart-turn is off/failed.
-    silence_end_ms: float = _env_float("SILENCE_END_MS", 1200.0)
+    # Capture — pure push-to-toggle: ENTER starts, ENTER again sends
+    # ==================================================================
     # Speech shorter than this is treated as noise and dropped.
     min_speech_ms: float = _env_float("MIN_SPEECH_MS", 250.0)
-    # Hard cap on a single utterance.
+    # Hard cap on a single utterance (safety net if ENTER is never pressed).
     max_utterance_seconds: float = _env_float("MAX_UTTERANCE_SECONDS", 15.0)
 
     # ==================================================================
@@ -238,19 +232,6 @@ class Config:
     session_ttl_minutes: int = _env_int("SESSION_TTL_MINUTES", 90)
     # Idle gap after which the next visitor gets a fresh session.
     session_idle_reset_min: float = _env_float("SESSION_IDLE_RESET_MIN", 3.0)
-
-    # ==================================================================
-    # Smart turn — learned end-of-turn (models/smart-turn-v3.2-cpu.onnx)
-    # ==================================================================
-    smart_turn_enabled: bool = field(
-        default_factory=lambda: _env_bool("SMART_TURN_ENABLED", True)
-    )
-    # [TUNE] quiet-pause classification threshold.
-    smart_turn_threshold: float = _env_float("SMART_TURN_THRESHOLD", 0.5)
-    # [TUNE] how often quiet pauses get classified (>=100ms).
-    smart_turn_check_ms: float = _env_float("SMART_TURN_CHECK_MS", 400.0)
-    # Hard cap on extra listening for hesitant speakers.
-    smart_turn_max_extra_ms: float = _env_float("SMART_TURN_MAX_EXTRA_MS", 3500.0)
 
     # ==================================================================
     # Idle attract mode — invite passive visitors

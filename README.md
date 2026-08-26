@@ -4,7 +4,7 @@ Realtime voice RAG chatbot for the Mid-Autumn Festival kiosk at the Vietnam
 Museum of Ethnology. Vietnamese-only. Cascaded streaming pipeline:
 
 ```
-mic → push-to-talk capture (smart-turn / manual / hold) → gipformer-65M ASR (int8)
+mic → push-to-talk capture (ENTER starts, ENTER sends) → gipformer-65M ASR (int8)
     → homophone post-filter → situation fast-path → FAISS retrieval + evidence bar
     → layered context → Gemini LLM stream → sentence splitter
     → VieNeu-TTS v3 Turbo (local) / edge-tts fallback → speaker
@@ -38,8 +38,7 @@ Design goals, in order:
 | `sentences.py` | Vietnamese-aware incremental splitter (first-clause early release) |
 | `resilience.py` | deadlines, soft budgets, failure tracker (LLM circuit breaker) |
 | `telemetry.py` | one JSONL span per turn → `logs/traces.jsonl`; transcripts → `conversations.jsonl` |
-| `audio.py` | PTT capture: smart-turn auto-stop / manual toggle / hold-to-talk; noise-floor calibration; debounced ENTER watcher |
-| `smart_turn.py` | Smart Turn v3.2 end-of-turn classifier (bundled ONNX) |
+| `audio.py` | PTT capture (ENTER starts, ENTER sends); debounced ENTER watcher |
 | `services/` | microservice layer: FastAPI apps on :8001-8004, Remote* clients, process manager |
 
 ## Setup
@@ -76,12 +75,8 @@ Controller-only flags: `--dev` (typed turns, same brain), `--no-tts`,
 `scripts/bench_rag.py`, `scripts/bench_latency.py`, `scripts/bench_tts_speed.py`,
 `scripts/trace_summary.py`.
 
-Voice loop: press **ENTER**, speak; end of turn depends on `PTT_MODE` —
-
-- `smart` *(default)*: auto-stop ~400ms after you stop (learned classifier,
-  fixed 1.2s silence window as fallback), or press ENTER again;
-- `manual`: only your ENTER stops it — hesitating kids are never cut off;
-- `hold`: hold ENTER to talk, release to send (zero detection latency).
+Voice loop: press **ENTER**, speak, press **ENTER** again to send —
+hesitating kids are never cut off by a timer.
 
 While the bot is talking, ENTER = barge-in (cuts audio; only the
 actually-heard prefix is kept in history). After `ATTRACT_AFTER_MIN` quiet

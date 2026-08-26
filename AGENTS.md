@@ -9,7 +9,7 @@ Mid-Autumn Festival kiosk at the Vietnam Museum of Ethnology. Cascaded
 streaming pipeline:
 
 ```
-mic → capture + smart-turn end-of-stop → gipformer ASR (int8, 30x RTF)
+mic → capture (ENTER starts, ENTER sends) → gipformer ASR (int8, 30x RTF)
     → gate → FAISS retrieval → layered context → Gemini LLM stream
     → sentence splitter → VieNeu-TTS (local) / edge-tts stream → speaker
                                                        (barge-in anywhere)
@@ -91,8 +91,7 @@ existing tests.
 | `asr_correct.py` | zero-latency domain-homophone post-filter; venue overrides via `data/asr_homophones.csv` |
 | `tts.py` | engine chain VieNeu → edge-tts → text-only; queue/cache/barge-in bookkeeping |
 | `tts_vienneu.py` | VieNeu-TTS v3 Turbo wrapper (`vieneu` SDK) |
-| `audio.py` | push-to-talk capture, smart-turn/silence auto-stop, cached noise floor |
-| `smart_turn.py` | learned end-of-turn ONNX classifier (models/smart-turn-v3.2-cpu.onnx); failure → fixed window |
+| `audio.py` | push-to-talk capture (ENTER toggles record/send); debounced ENTER watcher |
 | `resilience.py` | Deadline, budget(), FailureTracker (LLM breaker) |
 | `telemetry.py` | per-turn JSONL spans (`traces.jsonl`) + conversation transcript (`conversations.jsonl`) |
 
@@ -132,11 +131,9 @@ existing tests.
 - TTS voice presets: `VIENEU_VOICE` (list via
   `python -c "from vieneu import Vieneu; print(Vieneu().list_preset_voices())"`).
   First runs download models (gipformer ~100MB int8, VieNeu weights, embedder)
-  to the HF cache — pre-download on offline kiosks. The smart-turn ONNX model
-  is bundled in `models/` (no download). Legacy EraX Whisper model is
-  available via `ASR_BACKEND=whisper`.
+  to the HF cache — pre-download on offline kiosks. Legacy EraX Whisper model
+  is available via `ASR_BACKEND=whisper`.
 - Targets both CPU-only boxes (ONNX/int8 paths) and small NVIDIA GPUs (4–7GB).
-- `onnxruntime>=1.20` is required (smart-turn model uses IR version 10).
 - gipformer int8 ONNX files: `python scripts/fetch_gipformer.py`
   (HF: g-group-ai-lab/gipformer-65M-rnnt, ~70MB total).
 - Gemini transport: HTTP/2 enabled via `client_args`; `google-genai` pinned
@@ -153,7 +150,6 @@ read `logs/traces.jsonl`.
 
 | Knob | Watch | Adjust when |
 |---|---|---|
-| `SMART_TURN_THRESHOLD/CHECK_MS` | end-of-turn log lines (`p=…`) | turns cut mid-question → raise threshold; dead air → lower check_ms |
 | `EVIDENCE_SIM_MIN` | `best_sim` in traces vs turns with `docs>0` | junk docs leaking into chat answers → raise; real questions answered without docs → lower (prefer low) |
 | `ANSWER_CACHE_SIMILARITY` | cache-hit rate + wrong-answer complaints | wrong replayed answers → raise toward 0.95; few hits → try 0.90 |
 | `CONTEXT_CHAR_BUDGET` / `RECENT_EXCHANGES` | `prompt_chars` field in traces vs `llm_ttft` | TTFT creeping up → trim budget; answers missing context → grow |
@@ -166,7 +162,7 @@ Cloned for study under `D:\Code\VME\references\`: VieNeu-TTS (TTS we ship),
 silero-vad (VAD upgrade candidate for audio.py), gipformer (noisy-scenario
 VN ASR watchlist), vietnamese-embedding-benchmark (embedding/reranker
 leaderboard), pipecat + livekit-agents (framework patterns to borrow, not
-adopt; the smart-turn-v3.2 ONNX we bundle ships inside pipecat), mem0
+adopt), mem0
 (memory-layer ideas). Do not import from them; treat as reading material
 only.
 

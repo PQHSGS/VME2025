@@ -14,7 +14,6 @@ soundfile>=0.12          # libsndfile >=1.2 reads mp3 directly
 edge-tts>=6.1            # cloud fallback voice
 vieneu                   # VieNeu-TTS v3 Turbo (local ONNX; optional but recommended)
                          # absence -> automatic edge-tts fallback
-onnxruntime>=1.20        # smart turn end-of-turn model (needs IR version 10)
 
 # LLM client
 google-genai>=1.46        # Gemini backend (>=1.46 fixes a concurrency latency regression)

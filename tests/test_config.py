@@ -7,7 +7,6 @@ import config
 
 def test_capture_fields_exist():
     cfg = config.Config()
-    assert cfg.silence_end_ms > 0
     assert cfg.min_speech_ms > 0
     assert cfg.max_utterance_seconds > 0
 
