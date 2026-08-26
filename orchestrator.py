@@ -252,6 +252,16 @@ class ConversationOrchestrator:
         """Best evidence sim from the previous tool-mode turn (audit slot)."""
         return float((getattr(self, "_parked_docs", None) or {}).get("sim", 0.0))
 
+    def _on_llm_failure(self) -> None:
+        """Record an LLM error and open the circuit if the failure threshold is hit."""
+        if self.llm_failures.record_failure():
+            self._llm_cooldown_until = time.monotonic() + self.cfg.llm_cooldown_s
+            logger.critical(
+                "LLM failed %d times in a row - circuit OPEN for %.0fs",
+                self.llm_failures.count,
+                self.cfg.llm_cooldown_s,
+            )
+
     def _generate_reply(
         self,
         user_text: str,
@@ -528,18 +538,8 @@ class ConversationOrchestrator:
                     self.tts.submit(sentence)
                 parts.append(sentence)
         except Exception:
-            tripped = self.llm_failures.record_failure()
-            if tripped:
-                self._llm_cooldown_until = time.monotonic() + self.cfg.llm_cooldown_s
-                logger.critical(
-                    "LLM failed %d times in a row - circuit OPEN for %.0fs",
-                    self.llm_failures.count,
-                    self.cfg.llm_cooldown_s,
-                )
+            self._on_llm_failure()
             raise
-        else:
-            if parts:
-                self.llm_failures.record_success()
         finally:
             if filler_timer:
                 filler_timer.cancel()
@@ -547,11 +547,13 @@ class ConversationOrchestrator:
         reply = " ".join(p.strip() for p in parts).strip()
         if not reply:
             logger.warning("LLM produced no reply - using fallback")
-            self.llm_failures.record_failure()
+            self._on_llm_failure()
             if self.tts is not None and hasattr(self.tts, "stop"):
                 self.tts.stop()
             self._queue_speech(self.cfg.fallback_reply)
             return self.cfg.fallback_reply, "fallback"
+
+        self.llm_failures.record_success()
 
         path = "llm" if docs else "llm-nodocs"
 
