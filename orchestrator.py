@@ -464,7 +464,7 @@ class ConversationOrchestrator:
                     if self.tts:
                         self.tts.submit(sentence)
                     parts.append(sentence)
-                if deadline.expired:
+                if deadline.expired and len(parts) >= 1:
                     logger.warning("LLM hard deadline hit (%.2fs)", deadline.elapsed)
                     self._turn_truncated = True
                     break
